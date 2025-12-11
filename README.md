@@ -39,5 +39,5 @@ npm run dev
 **UI/UX:** Lian Paredes
 
 
-**Backend Lead:** [Your Name]
-**Frontend Lead:** [Frontend Lead Name]
+
+
