@@ -46,7 +46,7 @@ export function removeComments(tokens: Token[]): Token[] {
 
 
 //Nandito yung sinasabi mo pre para malaman if nasa dulo na ba ng file
-//Pinaayos ko sa kay gpt
+//Pinaayos ko kay gpt
 
 // ========== CharStream Class ==========
 /**
