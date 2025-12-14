@@ -117,10 +117,6 @@ export class CharStream {
     return this.index >= this.src.length;
   }
 
-  isAtEnd(): boolean {
-    return this.isEOF();
-  }
-
   skipWhitespace(): void {
     while (!this.isEOF() && isWhitespace(this.peek())) {
       this.advance();
