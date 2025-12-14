@@ -53,13 +53,13 @@ export enum TokenType {
   OP_Assign,            // =
   OP_EqualTo,           // ==
   OP_NotEqual,          // !=
-  OP_Less_Than,              // <
-  OP_Less_Equal,         // <=
-  OP_Greater_Than,           // >
-  OP_Greater_Equal,      // >=
-  OP_Logical_And,        // &&
-  OP_Logical_Or,         // ||
-  OP_Logical_Not,        // !
+  OP_Less_Than,         // <
+  OP_Less_Equal,        // <=
+  OP_Greater_Than,      // >
+  OP_Greater_Equal,     // >=
+  OP_Logical_And,       // &&
+  OP_Logical_Or,        // ||
+  OP_Logical_Not,       // !
 
   // ===== Delimiters =====
   D_LParen,            // (
