@@ -1,6 +1,6 @@
 // helper.ts
 
-import { Token, TokenType } from "./Tokens";
+import { Token, TokenType } from "../types/Tokens";
 
 /* =====================================================
    Character Classification Helpers
