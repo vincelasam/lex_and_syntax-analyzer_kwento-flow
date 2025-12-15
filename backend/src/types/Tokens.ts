@@ -42,6 +42,7 @@ export enum TokenType {
   N_To,                // to
   N_Is,                // is
   N_Then,              // then
+  N_Noiseword,         // general noisewords
 
   // ===== Operators =====
   OP_Plus,              // +
@@ -81,9 +82,11 @@ export enum TokenType {
 
   // ===== Whitespace =====
   NewLine,           // \n
+  Whitespace,        
 
   // ===== End of File =====
-  EOF                // end of input
+  EOF,                // end of input
+  Error
 }
 
 export const KEYWORDS: Record<string, TokenType> = {
