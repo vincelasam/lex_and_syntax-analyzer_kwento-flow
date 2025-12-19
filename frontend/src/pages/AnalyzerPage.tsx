@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { ManuscriptEditor } from "../features/lexical/ManuscriptEditor";
 import { TokenTable } from "../features/lexical/TokenTable";
+import type { Token } from "../features/lexical/TokenTable"; // Import from TokenTable
 
 const AnalyzerPage = () => {
   const [code, setCode] = useState("");
-  const [backendResponse, setBackendResponse] = useState<string>("");
+  const [tokens, setTokens] = useState<Token[]>([]);
 
   const handleAnalyze = async () => {
     try {
@@ -14,40 +15,38 @@ const AnalyzerPage = () => {
         body: JSON.stringify({ code }),
       });
 
-      const data = await response.json();
-      console.log("Response from backend:", data);
+      if (!response.ok) {
+        throw new Error("Failed to analyze code");
+      }
 
-      // Update state to show feedback
-      setBackendResponse(
-        `Message: ${data.message}\nReceived Code Length: ${data.length}\n\n${data.receivedCode}`
-      );
-    } catch (err) {
-      console.error("Error sending code:", err);
-      setBackendResponse("Error sending code to backend.");
+      const data = await response.json();
+      setTokens(data.tokens || []); // Add fallback for empty array
+    } catch (error) {
+      console.error("Analysis error:", error);
+      // Optionally show error to user
+      setTokens([]);
     }
   };
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[600px]">
-      {/* LEFT COLUMN: Editor + Analyze Button */}
+      {/* LEFT: Editor */}
       <section className="flex-1 flex flex-col gap-4">
         <div className="grow">
           <ManuscriptEditor code={code} setCode={setCode} />
         </div>
 
-        <button className="btn-primary w-full shadow-lg" onClick={handleAnalyze}>
+        <button
+          className="btn-primary w-full shadow-lg"
+          onClick={handleAnalyze}
+        >
           Analyze Narrative Structure
         </button>
       </section>
 
-      {/* RIGHT COLUMN: Table + Backend Feedback */}
-      <section className="flex-1 h-full min-w-0 overflow-auto flex flex-col gap-4">
-        {/* Feedback Box */}
-        <div className="p-4 border rounded bg-gray-100 text-sm whitespace-pre-wrap h-40 overflow-auto">
-          {backendResponse || "Backend response will appear here..."}
-        </div>
-
-        <TokenTable />
+      {/* RIGHT: Token Table */}
+      <section className="flex-1 h-full min-w-0 overflow-auto">
+        <TokenTable tokens={tokens} />
       </section>
     </div>
   );
