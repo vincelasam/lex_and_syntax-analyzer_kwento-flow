@@ -13,13 +13,25 @@ export function isDigit(c: string): boolean {
 }
 
 export function isAlphaNumeric(c: string): boolean {
-  return isLetter(c) || isDigit(c) || c === "_";
+  return isLetter(c) || isDigit(c);
 }
 
 export function isWhitespace(c: string = ""): boolean {
   if (!c) return false;
   const code = c.charCodeAt(0);
   return code === 32 || (code >= 9 && code <= 13);
+}
+
+export function isOperatorChar(ch: string): boolean {
+        return ch === '+' || ch === '-' || ch === '*' || ch === '/' || 
+        ch === '%' || ch === '^' || ch === '=' || ch === '!' ||
+        ch === '<' || ch === '>' || ch === '&' || ch === '|';
+}
+
+export function isDelimiterChar(ch: string): boolean {
+    return ch === '(' || ch === ')' || ch === '{' || ch === '}' ||
+           ch === '[' || ch === ']' || ch === ':' || ch === ';' ||
+           ch === ',' || ch === '.';
 }
 
 export function readWhile(stream: CharStream, condition: (c: string) => boolean): string {
