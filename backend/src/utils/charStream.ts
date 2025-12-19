@@ -45,5 +45,6 @@ export class CharStream {
   }
 
   getLine(): number { return this.line; }
+  
   getColumn(): number { return this.column; }
 }
