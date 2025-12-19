@@ -89,10 +89,15 @@ export class Lexer {
         const startLine = this.stream.getLine();
         const startColumn = this.stream.getColumn();
 
-        const value = readNumber(this.stream);
+        let value = readNumber(this.stream);
 
-        const token = makeToken(TokenType.NumberLiteral, value, startLine, startColumn);
-        this.tokens.push(token);
+        if (this.stream.peek() === '.' && isDigit(this.stream.peekNext())) {
+          value += this.stream.advance();
+          value += readNumber(this.stream);
+        }
+
+          const token = makeToken(TokenType.NumberLiteral, value, startLine, startColumn);
+          this.tokens.push(token);
         }
 
     private addEOFToken() : void {
@@ -142,7 +147,7 @@ export class Lexer {
 
         if(this.stream.peek() == "~"){
             this.stream.advance();
-            let value = " ~~ "
+            let value = "~~"
 
             while (!this.stream.isEOF() && this.stream.peek() !== '\n') {
                 value += this.stream.advance();
