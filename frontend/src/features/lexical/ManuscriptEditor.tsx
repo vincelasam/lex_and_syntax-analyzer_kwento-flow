@@ -1,24 +1,22 @@
-import React, { useState, useRef } from "react";
+import React, { useRef } from "react";
 import { Panel } from "../../components/ui/Panel";
 
-export const ManuscriptEditor = () => {
-  const [code, setCode] = useState(`scene ChapterOne {
-  rem hero_hp = 108;
-  character Jeff perceives Inventory {
-      masking secret_key;
-  }
-  transition thru Jeff to ChapterTwo when hero_hp > 56;
-  end scene;
-}`);
+interface ManuscriptEditorProps {
+  code: string;
+  setCode: (code: string) => void;
+}
 
+export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({ code, setCode }) => {
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const lineCount = code.split("\n").length;
 
+  // Sync line numbers with textarea scroll
   const handleScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
     if (lineNumbersRef.current) {
       lineNumbersRef.current.scrollTop = e.currentTarget.scrollTop;
     }
   };
+
   return (
     <Panel
       title="Manuscript Source (Code)"
@@ -31,12 +29,10 @@ export const ManuscriptEditor = () => {
     >
       <div className="flex h-full font-mono text-sm bg-(--kwento-bg)">
         {/* Line Numbers */}
-        {/* <div className="w-10 flex flex-col items-center pt-4 text-gray-400 bg-(--kwento-side) select-none border-r border-gray-100"> */}
-        {/* LINE NUMBERS COLUMN */}
         <div
           ref={lineNumbersRef}
           className="w-10 flex flex-col items-center pt-4 text-gray-400 bg-(--kwento-side) select-none border-r border-gray-100 overflow-hidden"
-          style={{ lineHeight: "1.5rem" }} // Explicit line-height to match textarea
+          style={{ lineHeight: "1.5rem" }}
         >
           {Array.from({ length: lineCount }).map((_, i) => (
             <div key={i} className="leading-6">
@@ -49,7 +45,7 @@ export const ManuscriptEditor = () => {
         <textarea
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          onScroll={handleScroll} // <--- Triggers the sync
+          onScroll={handleScroll}
           className="grow resize-none p-4 outline-none text-ink bg-(--kwento-paper) whitespace-pre overflow-auto leading-6"
           placeholder="Start typing your KwentoFlow code..."
           spellCheck={false}

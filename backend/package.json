@@ -10,13 +10,25 @@
     "test": "ts-node src/tests/lexer.test.ts",
     "clean": "rm -rf dist"
   },
-  "keywords": ["lexer", "compiler", "kwentoflow"],
+  "keywords": [
+    "lexer",
+    "compiler",
+    "kwentoflow"
+  ],
   "author": "Group 6",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0",
-    "ts-node": "^10.9.0",
-    "nodemon": "^3.0.0"
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.19.27",
+    "nodemon": "^3.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "body-parser": "^2.2.1",
+    "cors": "^2.8.5",
+    "express": "^5.2.1"
   }
 }
