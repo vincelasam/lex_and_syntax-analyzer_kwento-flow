@@ -74,7 +74,6 @@ export enum TokenType {
   D_Comma,             // ,
   D_Dot,               // .
   D_DoubleQuote,       // "
-  D_SingleQuote,       // '
 
   // ===== Comments =====
   SingleLineComment, // ~~ comment until newline
