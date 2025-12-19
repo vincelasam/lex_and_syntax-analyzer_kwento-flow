@@ -19,9 +19,6 @@
     JSON Tokens
 ```
 
-## 🚀 Quick Start
-
-### Full Stack
 # KwentoFlow Lexical Analyzer - Setup & Run Instructions
 
 This project is divided into two separate applications:
