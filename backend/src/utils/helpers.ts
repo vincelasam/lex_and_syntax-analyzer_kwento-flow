@@ -53,11 +53,53 @@ export function readNumber(stream: CharStream): string {
 export function readString(stream: CharStream): string {
   let value = "";
   while (!stream.isEOF() && stream.peek() !== '"') {
-    value += stream.advance();
+    const ch = stream.peek();
+
+    if (ch == "\\"){
+      stream.advance();
+
+      if (stream.isEOF()) {
+      throw new Error("Unterminated string literal");
+    }
+
+    const nextChar = stream.peek();
+      
+      switch (nextChar) {
+        case 'n':
+          value += '\n'; // actual newline character
+          stream.advance();
+          break;
+        case 't':
+          value += '\t'; // actual tab character
+          stream.advance();
+          break;
+        case '\\':
+          value += '\\'; // literal backslash
+          stream.advance();
+          break;
+        case '"':
+          value += '"'; // literal quote
+          stream.advance();
+          break;
+        default:
+          // Invalid escape sequence - treat as error
+          while (!stream.isEOF() && stream.peek() !== '"') {
+            stream.advance();
+          }
+          if (!stream.isEOF()) {
+            stream.advance(); // consume closing quote
+          }
+          throw new Error(`Invalid escape sequence: \\${nextChar}`);
+      }
+    } else {
+      value += stream.advance();
+    }
   }
+  
   if (stream.isEOF()) {
     throw new Error("Unterminated string literal");
   }
+  
   stream.advance(); // consume closing quote
   return value;
 }
