@@ -21,6 +21,32 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
     }
   };
 
+  // NEW: Handle Tab key to insert spaces
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Tab") {
+      e.preventDefault(); // Prevent focus change
+
+      const textarea = e.currentTarget;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+
+      // Configuration: How many spaces per tab? (Standard is 2 or 4)
+      const tabSize = 2;
+      const spaces = " ".repeat(tabSize);
+
+      // Insert spaces at cursor position
+      const newCode = code.substring(0, start) + spaces + code.substring(end);
+
+      setCode(newCode);
+
+      // Move cursor to after the inserted spaces
+      // We need to use requestAnimationFrame or setTimeout to ensure React render completes first
+      setTimeout(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + tabSize;
+      }, 0);
+    }
+  };
+
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -72,7 +98,6 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
           />
           <button
             onClick={handleUploadClick}
-            // UPDATED: Added transition-all, active:scale-95, and active:bg styles
             className="flex items-center gap-2 px-3 py-1 text-sm font-bold border border-(--kwento-gold) rounded hover:bg-parchment transition-all active:scale-95 active:bg-stone-300"
           >
             <span className="bg-black text-white px-1 text-xs">↑</span>
@@ -99,6 +124,7 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
         <textarea
           value={code}
           onChange={(e) => setCode(e.target.value)}
+          onKeyDown={handleKeyDown} // Attached the new handler here
           onScroll={handleScroll}
           className="grow resize-none p-4 outline-none text-ink bg-(--kwento-paper) whitespace-pre overflow-auto leading-6"
           placeholder="Start typing your KwentoFlow code..."
