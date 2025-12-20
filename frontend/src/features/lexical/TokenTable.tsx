@@ -150,11 +150,19 @@ export const TokenTable = ({ tokens, code }: TokenTableProps) => {
                 >
                   <td className="px-4 py-2 text-gray-500">{token.line}</td>
                   <td className="px-4 py-2 font-mono text-ink wrap-break-word max-w-[200px]">
-                    {token.lexeme
-                      .replace(/\n/g, '\\n')
-                      .replace(/\t/g, '\\t')
-                      .replace(/\r/g, '\\r')
-                    }
+                    
+                    {(() => {
+                      let displayValue = token.lexeme
+                        .replace(/\n/g, '\\n')
+                        .replace(/\t/g, '\\t')
+                        .replace(/\r/g, '\\r');
+                      
+                      if (token.type === 'TextLiteral') {
+                        displayValue = '"' + displayValue + '"';
+                      }
+                      
+                      return displayValue;
+                    })()}
                   </td>
                   <td className="px-4 py-2 text-xs font-bold text-gray-600 wrap-break-word">
                     {token.type}
