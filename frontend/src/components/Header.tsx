@@ -50,7 +50,7 @@ const Header: React.FC = () => {
         {/* The Help Icon Circle */}
         <button
           aria-label="Help"
-          className="bg-(--kwento-ink) text-parchment rounded-full w-8 h-8 flex items-center justify-center font-bold hover:bg-opacity-90 transition-colors"
+          className="bg-(--kwento-ink) text-(--kwento-paper) rounded-full w-8 h-8 flex items-center justify-center font-bold hover:bg-opacity-90 transition-colors"
         >
           ?
         </button>
