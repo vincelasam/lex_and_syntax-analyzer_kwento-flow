@@ -124,13 +124,19 @@ export const TokenTable = ({ tokens, code }: TokenTableProps) => {
         ) : null
       }
     >
-      <div className="h-full w-full overflow-auto min-w-0">
-        <table className="w-max min-w-full text-left text-sm font-sans border-collapse">
-          <thead className="bg-gray-100 text-xs font-bold text-gray-600 uppercase tracking-wider sticky top-0">
+      <div className="h-full w-full overflow-auto min-w-0 bg-white rounded-md">
+        <table className="w-max min-w-full text-left text-sm font-sans border-collapse relative">
+          <thead className="bg-gray-100 text-xs font-bold text-gray-600 uppercase tracking-wider sticky top-0 z-10 shadow-sm">
             <tr>
-              <th className="px-4 py-3 border-b border-gray-200">Line</th>
-              <th className="px-4 py-3 border-b border-gray-200">Lexeme</th>
-              <th className="px-4 py-3 border-b border-gray-200">Token Type</th>
+              <th className="px-4 py-3 border-b border-gray-200 bg-gray-100">
+                Line
+              </th>
+              <th className="px-4 py-3 border-b border-gray-200 bg-gray-100">
+                Lexeme
+              </th>
+              <th className="px-4 py-3 border-b border-gray-200 bg-gray-100">
+                Token Type
+              </th>
             </tr>
           </thead>
 
@@ -150,17 +156,16 @@ export const TokenTable = ({ tokens, code }: TokenTableProps) => {
                 >
                   <td className="px-4 py-2 text-gray-500">{token.line}</td>
                   <td className="px-4 py-2 font-mono text-ink wrap-break-word max-w-[200px]">
-                    
                     {(() => {
                       let displayValue = token.lexeme
-                        .replace(/\n/g, '\\n')
-                        .replace(/\t/g, '\\t')
-                        .replace(/\r/g, '\\r');
-                      
-                      if (token.type === 'TextLiteral') {
+                        .replace(/\n/g, "\\n")
+                        .replace(/\t/g, "\\t")
+                        .replace(/\r/g, "\\r");
+
+                      if (token.type === "TextLiteral") {
                         displayValue = '"' + displayValue + '"';
                       }
-                      
+
                       return displayValue;
                     })()}
                   </td>
