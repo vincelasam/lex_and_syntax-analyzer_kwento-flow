@@ -32,6 +32,7 @@ export enum TokenType {
   K_Log,               // log
   K_Choose,            // choose
   K_Default,           // default
+  K_DB,                // database       
 
   // ===== Reserved Words =====
   R_Text,              // text
@@ -101,6 +102,7 @@ export const KEYWORDS: Record<string, TokenType> = {
   "input": TokenType.K_Input,
   "says": TokenType.K_Says,
   "log": TokenType.K_Log,
+  "db": TokenType.K_DB,
   "rem": TokenType.K_Rem,
   "perceives": TokenType.K_Perceives,
   "masking": TokenType.K_Masking,
