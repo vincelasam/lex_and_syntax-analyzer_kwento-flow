@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/server/server.js",
-    "dev": "nodemon --watch src --exec ts-node src/server/server.ts",
+    "dev": "npx tsx watch src/server/server.ts",
     "test": "ts-node src/tests/lexer.test.ts",
     "clean": "rm -rf dist"
   },
@@ -29,6 +29,7 @@
   "dependencies": {
     "body-parser": "^2.2.1",
     "cors": "^2.8.5",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "jspdf": "^3.0.4"
   }
 }

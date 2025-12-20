@@ -1,1 +1,33 @@
-//contain code snippets for proposed language "KwentoFlow"
+story AdventureLoop
+start Crossroads
+
+character Narrator
+
+scene Crossroads {
+    text direction
+
+    character Narrator says "You stand at a fork in the road."
+    direction = input("Type 'forest' or 'cave': ")
+
+    ~~ The 'choose' block handles branching logic
+    choose direction {
+        forest -> SceneForest
+        cave   -> SceneCave
+        
+        ~~ Default handles invalid input
+        default:
+            character Narrator says "That is not a valid path. Try again."
+            transition to Crossroads
+    }
+}
+
+scene SceneForest {
+    character Narrator says "You hear birds singing. It is safe here."
+    end story
+}
+
+scene SceneCave {
+    character Narrator says "It is too dark to see! You retreat."
+    ~~ Example of looping back to the start
+    transition to Crossroads
+}

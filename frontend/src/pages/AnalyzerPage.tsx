@@ -46,7 +46,7 @@ const AnalyzerPage = () => {
 
       {/* RIGHT: Token Table */}
       <section className="flex-1 h-full min-w-0 overflow-auto">
-        <TokenTable tokens={tokens} />
+        <TokenTable tokens={tokens} code={code} />
       </section>
     </div>
   );

@@ -16,4 +16,4 @@ const mockTokens: Token[] = [
   { lexeme: ";", type: TokenType.D_Semicolon, line: 3, column: 11 }
 ];
 
-generatePDF(mockTokens, "test_tokens.pdf");
+generatePDF(mockTokens); 
