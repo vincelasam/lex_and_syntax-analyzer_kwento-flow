@@ -6,7 +6,10 @@ interface ManuscriptEditorProps {
   setCode: (code: string) => void;
 }
 
-export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({ code, setCode }) => {
+export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
+  code,
+  setCode,
+}) => {
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lineCount = code.split("\n").length;
@@ -22,27 +25,31 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({ code, setCod
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const validTypes = ['.txt', '.kf'];
+    const validTypes = [".txt", ".kf"];
     const fileName = file.name.toLowerCase();
-    const isValid = validTypes.some(type => fileName.endsWith(type));
+    const isValid = validTypes.some((type) => fileName.endsWith(type));
 
     if (!isValid) {
-      alert('Please upload a .txt or .kf');
+      alert("Please upload a .txt or .kf");
       return;
     }
 
     try {
       const content = await file.text();
       setCode(content);
-      console.log(' Manuscript uploaded:', file.name, `(${content.length} characters)`);
-      
+      console.log(
+        " Manuscript uploaded:",
+        file.name,
+        `(${content.length} characters)`
+      );
+
       // Clear input so same file can be uploaded again
       if (fileInputRef.current) {
-        fileInputRef.current.value = '';
+        fileInputRef.current.value = "";
       }
     } catch (error) {
-      console.error('Error reading file:', error);
-      alert('Failed to read file. Please try again.');
+      console.error("Error reading file:", error);
+      alert("Failed to read file. Please try again.");
     }
   };
 
@@ -63,9 +70,10 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({ code, setCod
             className="hidden"
             aria-label="Upload manuscript file"
           />
-          <button 
+          <button
             onClick={handleUploadClick}
-            className="flex items-center gap-2 px-3 py-1 text-sm font-bold border border-[var(--kwento-gold)] rounded hover:bg-parchment transition-colors"
+            // UPDATED: Added transition-all, active:scale-95, and active:bg styles
+            className="flex items-center gap-2 px-3 py-1 text-sm font-bold border border-(--kwento-gold) rounded hover:bg-parchment transition-all active:scale-95 active:bg-stone-300"
           >
             <span className="bg-black text-white px-1 text-xs">↑</span>
             Upload Manuscript
@@ -73,11 +81,11 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({ code, setCod
         </>
       }
     >
-      <div className="flex h-full font-mono text-sm bg-[var(--kwento-bg)]">
+      <div className="flex h-full font-mono text-sm bg-(--kwento-bg)">
         {/* Line Numbers */}
         <div
           ref={lineNumbersRef}
-          className="w-10 flex flex-col items-center pt-4 text-gray-400 bg-[var(--kwento-side)] select-none border-r border-gray-100 overflow-hidden"
+          className="w-10 flex flex-col items-center pt-4 text-gray-400 bg-(--kwento-side) select-none border-r border-gray-100 overflow-hidden"
           style={{ lineHeight: "1.5rem" }}
         >
           {Array.from({ length: lineCount }).map((_, i) => (
@@ -92,7 +100,7 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({ code, setCod
           value={code}
           onChange={(e) => setCode(e.target.value)}
           onScroll={handleScroll}
-          className="grow resize-none p-4 outline-none text-ink bg-[var(--kwento-paper)] whitespace-pre overflow-auto leading-6"
+          className="grow resize-none p-4 outline-none text-ink bg-(--kwento-paper) whitespace-pre overflow-auto leading-6"
           placeholder="Start typing your KwentoFlow code..."
           spellCheck={false}
         />
