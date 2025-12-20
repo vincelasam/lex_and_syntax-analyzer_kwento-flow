@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ManuscriptEditor } from "../features/lexical/ManuscriptEditor";
 import { TokenTable } from "../features/lexical/TokenTable";
-import type { Token } from "../features/lexical/TokenTable"; // Import from TokenTable
+import type { Token } from "../features/lexical/TokenTable";
 
 const AnalyzerPage = () => {
   const [code, setCode] = useState("");
@@ -20,24 +20,26 @@ const AnalyzerPage = () => {
       }
 
       const data = await response.json();
-      setTokens(data.tokens || []); // Add fallback for empty array
+      setTokens(data.tokens || []);
     } catch (error) {
       console.error("Analysis error:", error);
-      // Optionally show error to user
       setTokens([]);
     }
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 h-full min-h-[600px]">
+    // CHANGE 1: Use h-[85vh] (or h-[calc(100vh-100px)]) to force a fixed height.
+    // This stops the page from growing infinitely.
+    <div className="flex flex-col lg:flex-row gap-6 h-[70vh] w-full p-4">
       {/* LEFT: Editor */}
-      <section className="flex-1 flex flex-col gap-4">
-        <div className="grow">
+      {/* CHANGE 2: Add min-h-0 to allow the inner scroll to work */}
+      <section className="flex-1 flex flex-col gap-4 min-h-0">
+        <div className="grow min-h-0">
           <ManuscriptEditor code={code} setCode={setCode} />
         </div>
 
         <button
-          className="btn-primary w-full shadow-lg"
+          className="btn-primary w-full shadow-lg shrink-0" // shrink-0 ensures button size stays fixed
           onClick={handleAnalyze}
         >
           Analyze Narrative Structure
@@ -45,7 +47,9 @@ const AnalyzerPage = () => {
       </section>
 
       {/* RIGHT: Token Table */}
-      <section className="flex-1 h-full min-w-0 overflow-auto">
+      {/* CHANGE 3: min-h-0 here too. Removed overflow-auto from this wrapper 
+          because TokenTable handles its own scrolling. */}
+      <section className="flex-1 min-w-0 min-h-0">
         <TokenTable tokens={tokens} code={code} />
       </section>
     </div>
