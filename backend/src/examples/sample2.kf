@@ -1,0 +1,26 @@
+story start {
+
+  character hero
+  character villain
+
+  hero says "Hello world"
+  villain says "I will win!"
+
+  number x = 10
+  number y = 5
+
+  x = x + y * 2 - 3 / 1 % 2 ^ 2
+
+  boolean flag = true
+  boolean done = false
+
+  when x >= 10 && flag == true do {
+    log "Condition met"
+  }
+
+  choose x
+    default do {
+      log "Default choice"
+    }
+  end
+}
