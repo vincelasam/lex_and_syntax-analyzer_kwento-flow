@@ -91,26 +91,6 @@ export class Lexer {
 
         let value = readNumber(this.stream);
 
-        if (this.stream.peek() === '.' && isDigit(this.stream.peekNext())) {
-          value += this.stream.advance();
-          value += readNumber(this.stream);
-        }
-
-        if (!this.stream.isEOF() && isLetter(this.stream.peek())){
-            while(!this.stream.isEOF() && isAlphaNumeric(this.stream.peek())){
-                value += this.stream.advance();
-            }
-
-          const token = makeToken(TokenType.Error,
-            `Invalid Identifier: '${value}' (identifiers cannot start with a digit)`,
-            startLine, 
-            startColumn
-            ); 
-            
-            this.tokens.push(token);
-            return;
-        }
-
           const token = makeToken(TokenType.NumberLiteral, value, startLine, startColumn);
           this.tokens.push(token);
         }
