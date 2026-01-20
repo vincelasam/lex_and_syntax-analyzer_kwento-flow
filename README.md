@@ -140,11 +140,13 @@ Before starting, ensure you have **Node.js** installed on your machine.
 kwentoflow-analyzer/
 ├── backend/
 │   ├── src/
+│   │   ├── examples/       # Code Samples of KwentoFlow
 │   │   ├── lexer/          # Lexical analysis (Phase 1)
 │   │   ├── parser/         # Syntax analysis (Phase 2)
 │   │   ├── ast/            # Abstract Syntax Tree builder
 │   │   ├── server/         # Express API endpoints
 │   │   └── types/          # Shared TypeScript types
+│   │   ├── utils/          # Utilies for tokenization
 │   └── package.json
 │
 ├── frontend/
