@@ -2,13 +2,13 @@ import { useState } from "react";
 import { ManuscriptEditor } from "../features/ManuscriptEditor";
 import { TokenTable } from "../features/TokenTable";
 import type { Token } from "../features/TokenTable";
+import { SyntaxView, type SyntaxError } from "../features/SyntaxView";
 
 const AnalyzerPage = () => {
   const [code, setCode] = useState("");
   const [tokens, setTokens] = useState<Token[]>([]);
-
-  // 1. NEW STATE: specific for tracking which "tab" is open
   const [activeTab, setActiveTab] = useState<"lexical" | "syntax">("lexical");
+  const [syntaxErrors, setSyntaxErrors] = useState<SyntaxError[]>([]);
 
   const handleAnalyze = async () => {
     try {
@@ -82,11 +82,7 @@ const AnalyzerPage = () => {
               // CASE 1: Lexical Analyzer
               <TokenTable tokens={tokens} code={code} />
             ) : (
-              // CASE 2: Syntax Analyzer (Placeholder)
-              <div className="flex flex-col h-full items-center justify-center text-gray-400 border-2 border-dashed border-gray-200 rounded-lg">
-                <p>Syntax Analysis View</p>
-                <span className="text-sm">(Implementation coming next)</span>
-              </div>
+              <SyntaxView errors={syntaxErrors} />
             )}
           </div>
         </section>
