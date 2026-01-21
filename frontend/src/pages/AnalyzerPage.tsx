@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ManuscriptEditor } from "../features/lexical/ManuscriptEditor";
-import { TokenTable } from "../features/lexical/TokenTable";
-import type { Token } from "../features/lexical/TokenTable";
+import { ManuscriptEditor } from "../features/ManuscriptEditor";
+import { TokenTable } from "../features/TokenTable";
+import type { Token } from "../features/TokenTable";
 
 const AnalyzerPage = () => {
   const [code, setCode] = useState("");
