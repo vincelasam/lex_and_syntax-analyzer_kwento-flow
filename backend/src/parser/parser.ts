@@ -18,13 +18,11 @@ export class Parser extends parserUtils {
       while (!this.isAtEnd()) {
         if (this.match(TokenType.K_Scene)) {
           nodes.push(this.sceneDeclaration());
-
         } else if (!this.isAtEnd()) {
           this.error(this.peek(), 'Expected scene declaration');
           this.advance();
         }
       }
-
     } catch (error) {
       // Errors already recorded
     }
@@ -40,10 +38,8 @@ export class Parser extends parserUtils {
   private sceneDeclaration(): SceneDeclaration {
     const name = this.consume(TokenType.Identifier, 'Expected scene name');
     this.consume(TokenType.D_LBrace, 'Expected "{" after scene name');
-    
     const body = this.statementList();
     this.consume(TokenType.D_RBrace, 'Expected "}" to close scene');
-    
     return { type: 'SceneDeclaration', name: name.lexeme, body };
   }
 
@@ -78,11 +74,7 @@ export class Parser extends parserUtils {
       return this.characterDeclaration();
     }
 
-     if (this.match(TokenType.K_When)) {
-      return this.conditionalOrLoop();
-    }
-
-     if (this.match(TokenType.K_Do)) {
+    if (this.match(TokenType.K_Do)) {
       return this.doWhileStatement();
     }
 
@@ -91,7 +83,22 @@ export class Parser extends parserUtils {
     }
 
     if (this.match(TokenType.K_Transition)) {
-    return this.transitionStatement();
+      return this.transitionStatement();
+    }
+
+    if (this.match(TokenType.K_Log)) {
+      return this.logStatement();
+    }
+
+    // Check for says statement (character says "...")
+    if (this.check(TokenType.Identifier)) {
+      const savedPos = this.current;
+      this.advance();
+      if (this.check(TokenType.K_Says)) {
+        this.current = savedPos; // Reset position
+        return this.saysStatement();
+      }
+      this.current = savedPos; // Reset if not says
     }
 
     this.error(this.peek(), 'Invalid statement');
@@ -101,29 +108,23 @@ export class Parser extends parserUtils {
   private varDeclaration(dataType: TokenType): VariableDeclaration {
     const name = this.consume(TokenType.Identifier, 'Expected variable name');
     this.consume(TokenType.D_Semicolon, 'Expected ";" after variable declaration');
-    
     return { type: 'VariableDeclaration', dataType: TokenType[dataType], name: name.lexeme };
   }
 
   private assignment(): any {
     const name = this.consume(TokenType.Identifier, 'Expected variable name');
     this.consume(TokenType.OP_Assign, 'Expected "=" in assignment');
-    
     const value = this.expression();
     this.consume(TokenType.D_Semicolon, 'Expected ";" after assignment');
-    
     return { type: 'Assignment', name: name.lexeme, value };
   }
 
   private conditionalStatement(): any {
     this.consume(TokenType.D_LParen, 'Expected "(" after when');
     const condition = this.expression();
-    
     this.consume(TokenType.D_RParen, 'Expected ")" after condition');
-    
     this.consume(TokenType.D_LBrace, 'Expected "{" after condition');
     const body = this.statementList();
-    
     this.consume(TokenType.D_RBrace, 'Expected "}" to close when block');
     return { type: 'ConditionalStatement', condition, body };
   }
@@ -137,13 +138,70 @@ export class Parser extends parserUtils {
       const fieldName = this.consume(TokenType.Identifier, 'Expected field name');
       this.consume(TokenType.D_Colon, 'Expected ":" after field name');
       const fieldType = this.advance();
-
       this.consume(TokenType.D_Semicolon, 'Expected ";" after field');
       fields.push({ name: fieldName.lexeme, type: TokenType[fieldType.type] });
     }
     
     this.consume(TokenType.D_RBrace, 'Expected "}" to close character');
     return { type: 'CharacterDeclaration', name: name.lexeme, fields };
+  }
+
+  private doWhileStatement(): any {
+    this.consume(TokenType.D_LBrace, 'Expected "{" after do');
+    const body = this.statementList();
+    this.consume(TokenType.D_RBrace, 'Expected "}" after do block');
+    this.consume(TokenType.K_When, 'Expected "when" after do block');
+    this.consume(TokenType.D_LParen, 'Expected "(" after when');
+    const condition = this.expression();
+    this.consume(TokenType.D_RParen, 'Expected ")" after condition');
+    this.consume(TokenType.D_Semicolon, 'Expected ";" after do-while');
+    return { type: 'DoWhileStatement', body, condition };
+  }
+
+  private chooseStatement(): any {
+    const variable = this.consume(TokenType.Identifier, 'Expected variable after choose');
+    this.consume(TokenType.D_LBrace, 'Expected "{" after choose variable');
+  
+    const cases: any[] = [];
+    while (!this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
+      if (this.match(TokenType.K_Default)) {
+        this.consume(TokenType.D_Colon, 'Expected ":" after default');
+        const defaultBody = this.statementList();
+        cases.push({ type: 'DefaultCase', body: defaultBody });
+        break;
+      } else {
+        const caseValue = this.advance();
+        this.consume(TokenType.K_Transition, 'Expected "transition" after case value');
+        this.match(TokenType.N_To); // Optional "to"
+        const target = this.consume(TokenType.Identifier, 'Expected scene name');
+        this.consume(TokenType.D_Semicolon, 'Expected ";" after transition');
+        cases.push({ value: caseValue.lexeme, target: target.lexeme });
+      }
+    }
+  
+    this.consume(TokenType.D_RBrace, 'Expected "}" to close choose');
+    return { type: 'ChooseStatement', variable: variable.lexeme, cases };
+  }
+
+  private transitionStatement(): any {
+    this.match(TokenType.N_To); // Optional "to"
+    const target = this.consume(TokenType.Identifier, 'Expected scene name after transition');
+    this.consume(TokenType.D_Semicolon, 'Expected ";" after transition');
+    return { type: 'TransitionStatement', target: target.lexeme };
+  }
+
+  private logStatement(): any {
+    const message = this.consume(TokenType.TextLiteral, 'Expected message after log');
+    this.consume(TokenType.D_Semicolon, 'Expected ";" after log');
+    return { type: 'LogStatement', message: message.lexeme };
+  }
+
+  private saysStatement(): any {
+    const character = this.consume(TokenType.Identifier, 'Expected character name');
+    this.consume(TokenType.K_Says, 'Expected "says" after character');
+    const message = this.consume(TokenType.TextLiteral, 'Expected message');
+    this.consume(TokenType.D_Semicolon, 'Expected ";" after says');
+    return { type: 'SaysStatement', character: character.lexeme, message: message.lexeme };
   }
 
   // Expression parsing with operator precedence
@@ -153,15 +211,8 @@ export class Parser extends parserUtils {
 
   private comparison(): Expression {
     let expr = this.additive();
-    while (this.match(TokenType.OP_Less_Than, 
-        TokenType.OP_Greater_Than, 
-        TokenType.OP_Less_Equal, 
-        TokenType.OP_Greater_Equal, 
-        TokenType.OP_EqualTo, 
-        TokenType.OP_NotEqual)) {
-      
+    while (this.match(TokenType.OP_Less_Than, TokenType.OP_Greater_Than, TokenType.OP_Less_Equal, TokenType.OP_Greater_Equal, TokenType.OP_EqualTo, TokenType.OP_NotEqual)) {
       const operator = this.previous();
-      
       const right = this.additive();
       expr = { type: 'BinaryExpression', left: expr, operator: operator.lexeme, right };
     }
@@ -170,33 +221,27 @@ export class Parser extends parserUtils {
 
   private additive(): Expression {
     let expr = this.multiplicative();
-    
     while (this.match(TokenType.OP_Plus, TokenType.OP_Minus)) {
       const operator = this.previous();
       const right = this.multiplicative();
       expr = { type: 'BinaryExpression', left: expr, operator: operator.lexeme, right };
     }
-    
     return expr;
   }
 
   private multiplicative(): Expression {
     let expr = this.primary();
-   
     while (this.match(TokenType.OP_Asterisk, TokenType.OP_Slash, TokenType.OP_Modulo)) {
       const operator = this.previous();
       const right = this.primary();
       expr = { type: 'BinaryExpression', left: expr, operator: operator.lexeme, right };
     }
-   
     return expr;
   }
 
   private primary(): Expression {
     if (this.match(TokenType.NumberLiteral)) return { type: 'Literal', value: this.previous().lexeme };
-    
     if (this.match(TokenType.TextLiteral)) return { type: 'Literal', value: this.previous().lexeme };
-    
     if (this.match(TokenType.Identifier)) return { type: 'Identifier', name: this.previous().lexeme };
     
     if (this.match(TokenType.D_LParen)) {
@@ -208,73 +253,4 @@ export class Parser extends parserUtils {
     this.error(this.peek(), 'Expected expression');
     throw new Error('Expected expression');
   }
-
-  private conditionalOrLoop(): any {
-    this.consume(TokenType.D_LParen, 'Expected "(" after when');
-    const condition = this.expression();
-    
-    this.consume(TokenType.D_RParen, 'Expected ")" after condition');
-    
-    this.consume(TokenType.D_LBrace, 'Expected "{" after condition');
-    
-    const body = this.statementList();
-    this.consume(TokenType.D_RBrace, 'Expected "}" to close when block');
-  
-    return { type: 'ConditionalStatement', condition, body };
-    }
-
-
-
-  private doWhileStatement(): any {
-    this.consume(TokenType.D_LBrace, 'Expected "{" after do');
-    const body = this.statementList();
-    this.consume(TokenType.D_RBrace, 'Expected "}" after do block');
-  
-    this.consume(TokenType.K_When, 'Expected "when" after do block');
-    
-    this.consume(TokenType.D_LParen, 'Expected "(" after when');
-    const condition = this.expression();
-    
-    this.consume(TokenType.D_RParen, 'Expected ")" after condition');
-    this.consume(TokenType.D_Semicolon, 'Expected ";" after do-while');
-  
-    return { type: 'DoWhileStatement', body, condition };
-
-    }
-
-  private chooseStatement(): any {
-    const variable = this.consume(TokenType.Identifier, 'Expected variable after choose');
-    this.consume(TokenType.D_LBrace, 'Expected "{" after choose variable');
-  
-    const cases: any[] = [];
-    while (!this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
-        if (this.match(TokenType.K_Default)) {
-        this.consume(TokenType.D_Colon, 'Expected ":" after default');
-        const defaultBody = this.statementList();
-         cases.push({ type: 'DefaultCase', body: defaultBody });
-        break;
-
-        } else {
-            const caseValue = this.advance();
-            this.consume(TokenType.K_Transition, 'Expected "transition" after case value');
-            this.consume(TokenType.N_To, 'Expected "to" after transition');
-            
-            const target = this.consume(TokenType.Identifier, 'Expected scene name');
-            this.consume(TokenType.D_Semicolon, 'Expected ";" after transition');
-            
-            cases.push({ value: caseValue.lexeme, target: target.lexeme });
-        }
-    }
-  
-  this.consume(TokenType.D_RBrace, 'Expected "}" to close choose');
-  return { type: 'ChooseStatement', variable: variable.lexeme, cases };
-    }
-
-  private transitionStatement(): any {
-    this.match(TokenType.N_To); // Optional noise word
-    const target = this.consume(TokenType.Identifier, 'Expected scene name after transition');
-    
-    this.consume(TokenType.D_Semicolon, 'Expected ";" after transition');
-    return { type: 'TransitionStatement', target: target.lexeme };
-    }
 }
