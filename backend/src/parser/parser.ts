@@ -76,7 +76,7 @@ export class Parser extends parserUtils {
     }
 
     // Database declarations: db Name = "connection_string";
-    if (this.match(TokenType.R_Db)) {
+    if (this.match(TokenType.R_DB)) {
       return this.dbDeclaration();
     }
 
@@ -268,7 +268,7 @@ export class Parser extends parserUtils {
   // Handles || (logical OR) - lowest precedence
   private logicalOr(): Expression {
     let expr = this.logicalAnd();
-    while (this.match(TokenType.OP_Or)) {
+    while (this.match(TokenType.OP_Logical_Or)) {
       const operator = this.previous();
       const right = this.logicalAnd();
       expr = { type: 'BinaryExpression', left: expr, operator: operator.lexeme, right };
@@ -279,7 +279,7 @@ export class Parser extends parserUtils {
   // Handles && (logical AND)
   private logicalAnd(): Expression {
     let expr = this.comparison();
-    while (this.match(TokenType.OP_And)) {
+    while (this.match(TokenType.OP_Logical_And)) {
       const operator = this.previous();
       const right = this.comparison();
       expr = { type: 'BinaryExpression', left: expr, operator: operator.lexeme, right };
@@ -322,7 +322,7 @@ export class Parser extends parserUtils {
 
   // Handles unary operators: ! (logical NOT), - (negation)
   private unary(): Expression {
-    if (this.match(TokenType.OP_Not, TokenType.OP_Minus)) {
+    if (this.match(TokenType.OP_Logical_Not, TokenType.OP_Minus)) {
       const operator = this.previous();
       const right = this.unary();
       return { type: 'UnaryExpression', operator: operator.lexeme, operand: right };
