@@ -120,6 +120,16 @@ export class Parser extends parserUtils {
       return this.endStatement();
     }
 
+    // Security keyword "perceives"
+    if (this.match(TokenType.K_Perceives)) {
+        return this.perceivesBlock();
+    } 
+    
+    // Security keyword "perceives"
+    if (this.match(TokenType.K_Thru)) {
+        return this.thruStatement();
+    }
+
     // Character dialogue: CharName says "message";
     if (this.check(TokenType.Identifier)) {
       const savedPos = this.current;
@@ -173,19 +183,31 @@ export class Parser extends parserUtils {
   private characterDeclaration(): any {
     const name = this.consume(TokenType.Identifier, 'Expected character name');
     this.consume(TokenType.D_LBrace, 'Expected "{" after character name');
-    
+  
     const fields: any[] = [];
+    const perceivesBlocks: any[] = [];
+  
     while (!this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
-      const fieldName = this.consume(TokenType.Identifier, 'Expected field name');
-      this.consume(TokenType.D_Colon, 'Expected ":" after field name');
-      const fieldType = this.advance();
-      this.consume(TokenType.D_Semicolon, 'Expected ";" after field');
-      fields.push({ name: fieldName.lexeme, type: TokenType[fieldType.type] });
+        if (this.match(TokenType.K_Perceives)) {
+        perceivesBlocks.push(this.perceivesBlock());
+        } else {
+         // Regular field
+        const fieldName = this.consume(TokenType.Identifier, 'Expected field name');
+        this.consume(TokenType.D_Colon, 'Expected ":" after field name');
+        const fieldType = this.advance();
+        this.consume(TokenType.D_Semicolon, 'Expected ";" after field');
+        fields.push({ name: fieldName.lexeme, type: TokenType[fieldType.type] });
+        }
     }
-    
+  
     this.consume(TokenType.D_RBrace, 'Expected "}" to close character');
-    return { type: 'CharacterDeclaration', name: name.lexeme, fields };
-  }
+    return { 
+        type: 'CharacterDeclaration', 
+        name: name.lexeme, 
+        fields,
+        perceivesBlocks 
+    };
+    }
 
   // do { } when (condition); - executes at least once
   private doWhileStatement(): any {
@@ -364,4 +386,55 @@ export class Parser extends parserUtils {
     this.error(this.peek(), 'Expected expression');
     throw new Error('Expected expression');
   }
+
+  private perceivesBlock(): any {
+  // character Admin perceives db.users { masking password; }
+    const target = this.consume(TokenType.Identifier, 'Expected table/character name');
+    this.consume(TokenType.D_LBrace, 'Expected "{" after perceives target');
+  
+    const policies: any[] = [];
+    while (!this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
+        if (this.match(TokenType.K_Masking)) {
+        policies.push(this.maskingPolicy());
+        } else if (this.match(TokenType.K_Where)) {
+        policies.push(this.wherePolicy());
+        } else {
+        this.error(this.peek(), 'Expected masking or where in perceives block');
+        this.advance();
+        }
+    }
+  
+    this.consume(TokenType.D_RBrace, 'Expected "}" to close perceives');
+    return { type: 'PerceivesBlock', target: target.lexeme, policies };
+    }
+
+  private maskingPolicy(): any {
+    // masking field1, field2, field3;
+    const fields: string[] = [];
+    do {
+        const field = this.consume(TokenType.Identifier, 'Expected field name');
+        fields.push(field.lexeme);
+    } while (this.match(TokenType.D_Comma));
+  
+    this.consume(TokenType.D_Semicolon, 'Expected ";" after masking');
+    return { type: 'MaskingPolicy', fields };
+    }
+
+  private wherePolicy(): any {
+  // where userID == currentUser.id;
+    const condition = this.expression();
+    this.consume(TokenType.D_Semicolon, 'Expected ";" after where condition');
+    return { type: 'WherePolicy', condition };
+  }
+
+  private thruStatement(): any {
+  // thru Admin { statements }
+    const character = this.consume(TokenType.Identifier, 'Expected character name after thru');
+    this.consume(TokenType.D_LBrace, 'Expected "{" after character');
+    const body = this.statementList();
+    this.consume(TokenType.D_RBrace, 'Expected "}" to close thru block');
+    return { type: 'ThruStatement', character: character.lexeme, body };
+    }
+
+
 }
