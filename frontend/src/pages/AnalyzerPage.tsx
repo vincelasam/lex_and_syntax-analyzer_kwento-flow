@@ -9,6 +9,7 @@ const AnalyzerPage = () => {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [activeTab, setActiveTab] = useState<"lexical" | "syntax">("lexical");
   const [syntaxErrors, setSyntaxErrors] = useState<SyntaxError[]>([]);
+  const [hasRunAnalysis, setHasRunAnalysis] = useState(false);
 
   const handleAnalyze = async () => {
     try {
@@ -28,6 +29,7 @@ const AnalyzerPage = () => {
       console.error("Analysis error:", error);
       setTokens([]);
     }
+    setHasRunAnalysis(true);
   };
 
   return (
@@ -82,7 +84,7 @@ const AnalyzerPage = () => {
               // CASE 1: Lexical Analyzer
               <TokenTable tokens={tokens} code={code} />
             ) : (
-              <SyntaxView errors={syntaxErrors} />
+              <SyntaxView errors={syntaxErrors} hasAnalyzed={hasRunAnalysis} />
             )}
           </div>
         </section>
