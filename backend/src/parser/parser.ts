@@ -90,6 +90,10 @@ export class Parser extends parserUtils {
       return this.chooseStatement();
     }
 
+    if (this.match(TokenType.K_Transition)) {
+    return this.transitionStatement();
+    }
+
     this.error(this.peek(), 'Invalid statement');
     throw new Error('Invalid statement');
   }
@@ -264,5 +268,13 @@ export class Parser extends parserUtils {
   
   this.consume(TokenType.D_RBrace, 'Expected "}" to close choose');
   return { type: 'ChooseStatement', variable: variable.lexeme, cases };
+    }
+
+  private transitionStatement(): any {
+    this.match(TokenType.N_To); // Optional noise word
+    const target = this.consume(TokenType.Identifier, 'Expected scene name after transition');
+    
+    this.consume(TokenType.D_Semicolon, 'Expected ";" after transition');
+    return { type: 'TransitionStatement', target: target.lexeme };
     }
 }
