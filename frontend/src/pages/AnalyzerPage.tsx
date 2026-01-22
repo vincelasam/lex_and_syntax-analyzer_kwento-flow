@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { ManuscriptEditor } from "../features/lexical/ManuscriptEditor";
-import { TokenTable } from "../features/lexical/TokenTable";
-import type { Token } from "../features/lexical/TokenTable";
+import { ManuscriptEditor } from "../features/ManuscriptEditor";
+import { TokenTable } from "../features/TokenTable";
+import type { Token } from "../features/TokenTable";
+import { SyntaxView, type SyntaxError } from "../features/SyntaxView";
 
 const AnalyzerPage = () => {
   const [code, setCode] = useState("");
   const [tokens, setTokens] = useState<Token[]>([]);
+  const [activeTab, setActiveTab] = useState<"lexical" | "syntax">("lexical");
+  const [syntaxErrors, setSyntaxErrors] = useState<SyntaxError[]>([]);
+  const [hasRunAnalysis, setHasRunAnalysis] = useState(false);
 
   const handleAnalyze = async () => {
     try {
@@ -25,33 +29,66 @@ const AnalyzerPage = () => {
       console.error("Analysis error:", error);
       setTokens([]);
     }
+    setHasRunAnalysis(true);
   };
 
   return (
-    // CHANGE 1: Use h-[85vh] (or h-[calc(100vh-100px)]) to force a fixed height.
-    // This stops the page from growing infinitely.
-    <div className="flex flex-col lg:flex-row gap-6 w-full p-4 min-h-[70vh] lg:h-[70vh]">
-      {/* LEFT: Editor */}
-      {/* CHANGE 2: Add min-h-0 to allow the inner scroll to work */}
-      <section className="flex-1 flex flex-col gap-4 min-h-0">
-        <div className="grow min-h-0">
-          <ManuscriptEditor code={code} setCode={setCode} />
-        </div>
-
+    // OUTER CONTAINER: Handles the full height of the page
+    <div className="flex flex-col w-full p-4 gap-2 h-[85vh]">
+      {/* --- NEW SECTION: THE TABS --- */}
+      <div className="flex gap-2 px-1">
         <button
-          className="btn-primary w-full shadow-lg shrink-0" // shrink-0 ensures button size stays fixed
-          onClick={handleAnalyze}
+          onClick={() => setActiveTab("lexical")}
+          className={`px-4 py-2 font-bold rounded-t-lg transition-colors border-t-2 border-l-2 border-r-2 ${
+            activeTab === "lexical"
+              ? "bg-[#e4c060] text-white border-[#e4c060] shadow-sm" // Active Style
+              : "bg-gray-100 text-gray-500 border-transparent hover:bg-gray-200" // Inactive Style
+          }`}
         >
-          Analyze Narrative Structure
+          Lexical Analyzer
         </button>
-      </section>
+        <button
+          onClick={() => setActiveTab("syntax")}
+          className={`px-4 py-2 font-bold rounded-t-lg transition-colors border-t-2 border-l-2 border-r-2 ${
+            activeTab === "syntax"
+              ? "bg-[#e4c060] text-white border-[#e4c060] shadow-sm"
+              : "bg-gray-100 text-gray-500 border-transparent hover:bg-gray-200"
+          }`}
+        >
+          Syntax Analyzer
+        </button>
+      </div>
 
-      {/* RIGHT: Token Table */}
-      {/* CHANGE 3: min-h-0 here too. Removed overflow-auto from this wrapper 
-          because TokenTable handles its own scrolling. */}
-      <section className="flex-1 min-w-0 min-h-0">
-        <TokenTable tokens={tokens} code={code} />
-      </section>
+      {/* --- ORIGINAL CONTENT AREA --- */}
+      {/* I changed the fixed height to 'grow' so it fills the rest of the 85vh minus the tabs */}
+      <div className="flex flex-col lg:flex-row gap-6 w-full grow min-h-0">
+        {/* LEFT: Editor (Stays Static - Shared Input) */}
+        <section className="flex-1 flex flex-col gap-4 min-h-0">
+          <div className="grow min-h-0">
+            <ManuscriptEditor code={code} setCode={setCode} />
+          </div>
+
+          <button
+            className="btn-primary w-full shadow-lg shrink-0"
+            onClick={handleAnalyze}
+          >
+            Analyze Narrative Structure
+          </button>
+        </section>
+
+        {/* RIGHT: Output (Dynamic - Swaps based on Tab) */}
+        <section className="flex-1 min-w-0 min-h-0 flex flex-col">
+          {/* THE SWITCH LOGIC */}
+          <div className="grow min-h-0 overflow-auto bg-white rounded-md">
+            {activeTab === "lexical" ? (
+              // CASE 1: Lexical Analyzer
+              <TokenTable tokens={tokens} code={code} />
+            ) : (
+              <SyntaxView errors={syntaxErrors} hasAnalyzed={hasRunAnalysis} />
+            )}
+          </div>
+        </section>
+      </div>
     </div>
   );
 };

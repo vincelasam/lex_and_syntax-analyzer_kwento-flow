@@ -1,5 +1,5 @@
 import React, { useRef, useLayoutEffect } from "react";
-import { Panel } from "../../components/ui/Panel";
+import { Panel } from "../components/ui/Panel";
 
 interface ManuscriptEditorProps {
   code: string;

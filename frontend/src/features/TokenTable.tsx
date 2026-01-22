@@ -1,4 +1,4 @@
-import { Panel } from "../../components/ui/Panel";
+import { Panel } from "../components/ui/Panel";
 
 export interface Token {
   id: number;
@@ -91,7 +91,7 @@ export const TokenTable = ({ tokens, code }: TokenTableProps) => {
       alert(
         `Failed to generate PDF: ${
           error instanceof Error ? error.message : "Unknown error"
-        }`
+        }`,
       );
     }
   };
