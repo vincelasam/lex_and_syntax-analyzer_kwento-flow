@@ -1,8 +1,8 @@
 import { Token, TokenType } from '../types/Tokens';
-// import { SyntaxError } from './SyntaxError';
+import { SyntaxError } from '../parser/syntaxErr';
 
 
-export class ParserUtils {
+export class parserUtils {
   protected tokens: Token[];
   protected current: number = 0;
   protected errors: SyntaxError[] = [];
