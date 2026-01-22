@@ -4,6 +4,7 @@ import { Lexer } from "../lexer/kf_lexer";
 import { CharStream } from "../utils/charStream";
 import { TokenType } from "../types/Tokens";
 import { generatePDF } from "../lexer/pdf_generator";
+import { Parser } from "../parser/parser";
 
 const app = express();
 const PORT = 5000; 
@@ -24,17 +25,14 @@ app.get("/", (req, res) => {
 
 // Analyze endpoint
 app.post("/analyze", (req, res) => {
-  console.log("📝 /analyze endpoint called");
   const { code } = req.body;
-  
+
   if (!code) {
-    return res.status(400).json({ 
-      success: false, 
-      message: "No code provided" 
-    });
+    return res.status(400).json({ success: false, message: "No code provided" });
   }
 
   try {
+    // 1. LEXICAL ANALYSIS
     const lexer = new Lexer(new CharStream(code));
     const tokens = lexer.tokenize();
 
@@ -46,13 +44,27 @@ app.post("/analyze", (req, res) => {
       desc: "",
     }));
 
-    console.log(`✅ Analyzed ${tokensForFrontend.length} tokens`);
-    res.json({ success: true, tokens: tokensForFrontend });
-  } catch (error) {
-    console.error("❌ Analysis error:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to analyze code" 
+    // 2. SYNTAX ANALYSIS
+    const parser = new Parser(tokens);
+    const parseResult = parser.parse();
+
+    const syntaxErrors = parseResult.errors.map(err => ({
+      line: err.token?.line ?? err.line ?? 0,
+      message: err.message,
+      type: err.type ?? "SYNTAX ERROR"
+    }));
+
+    res.json({
+      success: true,
+      tokens: tokensForFrontend,
+      syntaxErrors,
+      ast: parseResult.body // optional (future use)
+    });
+
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: "Unexpected compiler error"
     });
   }
 });
