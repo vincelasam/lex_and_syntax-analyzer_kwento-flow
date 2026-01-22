@@ -32,9 +32,9 @@ export interface StoryDeclaration extends ASTNode {
   name: string;
 }
 
-export interface StartDeclaration extends ASTNode {
+export interface StartDeclaration extends ASTNode {  // ← ADDED
   type: 'StartDeclaration';
-  name: string;
+  scene: string;
 }
 
 export interface SceneDeclaration extends ASTNode {

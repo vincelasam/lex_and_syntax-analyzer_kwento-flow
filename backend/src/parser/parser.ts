@@ -9,7 +9,7 @@ export class Parser extends parserUtils {
 
   // Main entry point: parses entire KwentoFlow program
   public parse(): { body: ASTNode[], errors: any[] } {
-    const nodes: ASTNode[] = [];
+    const nodes: Statement[] = [];
 
     try {
       // Optional story declaration at program start
@@ -19,8 +19,8 @@ export class Parser extends parserUtils {
 
       // Optional start declaration (entry point)
       if (this.match(TokenType.K_Start)) {
-        const sceneName = this.consume(TokenType.Identifier, 'Expected scene name after start');
-        nodes.push({ type: 'StartDeclaration', scene: sceneName.lexeme });
+      const sceneName = this.consume(TokenType.Identifier, 'Expected scene name after start');
+      nodes.push({ type: 'StartDeclaration', scene: sceneName.lexeme });
       }
 
       // Parse all scenes (required)
