@@ -1,7 +1,4 @@
 import { Token, TokenType } from "../types/Tokens"; 
-/* =====================================================
-   Token Factory
-===================================================== */
 
 export function makeToken(
   type: TokenType,
@@ -12,13 +9,10 @@ export function makeToken(
   return { type, lexeme, line, column };
 }
 
-/* =====================================================
-   Token Identification
-===================================================== */
+// Token Identification
 
-/**
- * Determines whether a lexeme is a keyword or identifier
- */
+//Determines whether a lexeme is a keyword or identifier
+
 export function keywordOrIdentifier(
   lexeme: string,
   keywords: Record<string, TokenType>
@@ -30,9 +24,7 @@ export function keywordOrIdentifier(
   return TokenType.Identifier;
 }
 
-/* =====================================================
-   Token Array Filters (Post-Processing)
-===================================================== */
+//Token Array Filters (Post-Processing)
 
 export function removeComments(tokens: Token[]): Token[] {
   return tokens.filter(
@@ -54,9 +46,7 @@ export function getTokensByType(tokens: Token[], type: TokenType): Token[] {
     return tokens.filter(t => t.type === type);
 }
 
-/* =====================================================
-   Error Handling & Debugging
-===================================================== */
+//Error Handling & Debugging
 
 export function hasErrors(tokens: Token[]): boolean {
     return tokens.some(t => t.type === TokenType.Error);
