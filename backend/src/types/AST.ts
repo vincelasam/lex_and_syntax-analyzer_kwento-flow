@@ -1,4 +1,4 @@
-// -------------------------------------------------------`
+// -------------------------------------------------------
 // -----------      AST Type Definitions      ------------   
 //---    Defines the structure of our Language's AST   ---
 //--------------------------------------------------------
@@ -11,6 +11,7 @@ export type Statement =
   | StoryDeclaration
   | StartDeclaration
   | SceneDeclaration
+  | CharacterInstantiation
   | VariableDeclaration
   | DbDeclaration
   | Assignment
@@ -32,7 +33,7 @@ export interface StoryDeclaration extends ASTNode {
   name: string;
 }
 
-export interface StartDeclaration extends ASTNode {  // ← ADDED
+export interface StartDeclaration extends ASTNode {
   type: 'StartDeclaration';
   scene: string;
 }
@@ -44,6 +45,12 @@ export interface SceneDeclaration extends ASTNode {
 }
 
 // 2. Statements
+export interface CharacterInstantiation extends ASTNode {
+  type: 'CharacterInstantiation';
+  characterType: string;  // e.g., "Player"
+  instanceName: string;   // e.g., "hero"
+}
+
 export interface VariableDeclaration extends ASTNode {
   type: 'VariableDeclaration';
   dataType: string; // e.g., "text", "number"
@@ -55,7 +62,6 @@ export interface DbDeclaration extends ASTNode {
   name: string;
   connectionString: string;
 }
-
 
 // It allows the target to be a simple name ("x") or a member access ("traveler.name")
 export interface Assignment extends ASTNode {
@@ -123,7 +129,7 @@ export interface CharacterDeclaration extends ASTNode {
 
 export interface PerceivesBlock extends ASTNode {
   type: 'PerceivesBlock';
-  target: string;
+  target: string;  // Can be "TableName" or "db.TableName" or "CharacterType"
   policies: (MaskingPolicy | WherePolicy)[];
 }
 
@@ -150,7 +156,8 @@ export type Expression =
   | Literal 
   | Identifier 
   | MemberAccess   // Needed for "if traveler.gold > 0"
-  | FunctionCall;  // Needed for "input(...)"
+  | FunctionCall   // Needed for "input(...)"
+  | MethodCall;    // Needed for "obj.method()"
 
 export interface BinaryExpression extends ASTNode {
   type: 'BinaryExpression';
@@ -178,12 +185,19 @@ export interface Identifier extends ASTNode {
 // THE GRAMMAR STRUCTURE FOR DOT NOTATION
 export interface MemberAccess extends ASTNode {
   type: 'MemberAccess';
-  object: string;   // "traveler"
-  property: string; // "name"
+  object: string;   // "traveler" or "hero"
+  property: string; // "name" or "health"
 }
 
 export interface FunctionCall extends ASTNode {
   type: 'FunctionCall';
   name: string;
+  arguments: Expression[];
+}
+
+export interface MethodCall extends ASTNode {
+  type: 'MethodCall';
+  object: string;    // "database" or "player"
+  method: string;    // "query" or "attack"
   arguments: Expression[];
 }
