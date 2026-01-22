@@ -9,6 +9,7 @@ export interface ASTNode {
 
 export type Statement =
   | StoryDeclaration
+  | StartDeclaration
   | SceneDeclaration
   | VariableDeclaration
   | DbDeclaration
@@ -28,6 +29,11 @@ export type Statement =
 // 1. Root Declarations
 export interface StoryDeclaration extends ASTNode {
   type: 'StoryDeclaration';
+  name: string;
+}
+
+export interface StartDeclaration extends ASTNode {
+  type: 'StartDeclaration';
   name: string;
 }
 

@@ -162,12 +162,32 @@ export class Parser extends parserUtils {
 
   private assignment(): any {
     const name = this.consume(TokenType.Identifier, 'Expected variable name');
+
+    // Check for member access: hero.health
+    if (this.match(TokenType.D_Dot)) {
+      const property = this.consume(TokenType.Identifier, 'Expected property name after "."');
+      this.consume(TokenType.OP_Assign, 'Expected "=" in assignment');
+      const value = this.expression();
+      this.consume(TokenType.D_Semicolon, 'Expected ";" after assignment');
+    
+      return { 
+        type: 'Assignment', 
+        target: { type: 'MemberAccess', object: name.lexeme, property: property.lexeme },
+        value 
+      };
+    }
+  
+    // Simple assignment: x = 10
     this.consume(TokenType.OP_Assign, 'Expected "=" in assignment');
     const value = this.expression();
     this.consume(TokenType.D_Semicolon, 'Expected ";" after assignment');
-    return { type: 'Assignment', name: name.lexeme, value };
+  
+    return { 
+      type: 'Assignment', 
+      target: name.lexeme,  // ← Simple string
+      value 
+    };
   }
-
   // Handles both conditionals and while loops (same syntax in KwentoFlow)
   private conditionalStatement(): any {
     this.consume(TokenType.D_LParen, 'Expected "(" after when');
@@ -215,7 +235,7 @@ export class Parser extends parserUtils {
     const body = this.statementList();
     this.consume(TokenType.D_RBrace, 'Expected "}" after do block');
     this.consume(TokenType.K_When, 'Expected "when" after do block');
-    this.consume(TokenType.D_LParen, 'Expected "(" after when');
+    this.consume(TokenType.D_LParen, 'Expected "(" after when');    
     const condition = this.expression();
     this.consume(TokenType.D_RParen, 'Expected ")" after condition');
     this.consume(TokenType.D_Semicolon, 'Expected ";" after do-while');
