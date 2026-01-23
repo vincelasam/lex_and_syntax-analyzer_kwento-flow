@@ -65,10 +65,13 @@ export class parserUtils {
 
   protected synchronize(): void {
 
-
     while (!this.isAtEnd()) {
-      if (this.previous().type === TokenType.D_Semicolon) return;
-      if (this.check(TokenType.D_RBrace)) return;
+      if (this.match(TokenType.D_Semicolon)) {
+        return;
+      }
+      if (this.check(TokenType.D_RBrace)) {
+        return;
+      }
 
   switch (this.peek().type) {
         case TokenType.K_Scene:
