@@ -147,6 +147,11 @@ export class Parser extends parserUtils {
       return this.thruStatement();
     }
 
+    if (this.match(TokenType.K_Character)) {
+      this.error(this.previous(), "Character declarations are not allowed inside scenes. Move them to the top of the file.", ErrorType.INVALID_STATEMENT);
+      throw new Error("Invalid statement");
+    }
+
     // --- UPDATED SECTION START ---
     // Check for Input, Character instantiation, or Dialogue
     if (this.check(TokenType.Identifier)) {
