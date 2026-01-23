@@ -386,10 +386,7 @@ export class Parser extends parserUtils {
       this.current = savedPos3;
       const badToken = this.advance(); 
       const suggestion = this.getKeywordSuggestion(badToken.lexeme);
-      const message = suggestion
-      ? `Invalid statement starting with '${badToken.lexeme}'. Did you mean '${suggestion}'?`
-      : `Invalid statement starting with '${badToken.lexeme}'`;
-      this.error(badToken, message, ErrorType.INVALID_STATEMENT, suggestion);
+      this.error(badToken, `Invalid statement starting with '${badToken.lexeme}'`, ErrorType.INVALID_STATEMENT, suggestion);
       
       // DON'T throw - just skip to semicolon or next statement
       this.consumeSemicolon();
