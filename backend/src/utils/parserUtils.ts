@@ -64,19 +64,32 @@ export class parserUtils {
   }
 
   protected synchronize(): void {
-    this.advance();
 
     while (!this.isAtEnd()) {
-      if (this.previous().type === TokenType.D_Semicolon) return;
+      if (this.match(TokenType.D_Semicolon)) {
+        return;
+      }
+      if (this.check(TokenType.D_RBrace)) {
+        return;
+      }
 
-      if (this.check(TokenType.D_RBrace)) return;
-
-      switch (this.peek().type) {
+  switch (this.peek().type) {
         case TokenType.K_Scene:
         case TokenType.K_Character:
         case TokenType.K_When:
         case TokenType.K_Rem:
-          return;
+        case TokenType.K_Do:      
+        case TokenType.K_Choose:
+        case TokenType.K_Transition:
+        case TokenType.K_Log:
+        case TokenType.K_End:
+        case TokenType.K_Perceives:
+        case TokenType.K_Thru:
+        case TokenType.R_Text:   
+        case TokenType.R_Number:
+        case TokenType.R_Boolean:
+        case TokenType.R_DB:
+        return;
       }
 
       this.advance();
