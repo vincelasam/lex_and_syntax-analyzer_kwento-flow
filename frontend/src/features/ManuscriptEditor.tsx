@@ -1,6 +1,5 @@
 import React, { useRef, useLayoutEffect, useMemo } from "react";
 import { Panel } from "../components/ui/Panel";
-// IMPORT THE HIGHLIGHTER UTILITY
 import { highlightCode } from "../utils/syntaxHighlighter";
 
 interface ManuscriptEditorProps {
@@ -12,7 +11,16 @@ const CONFIG = {
   lineHeight: 24,
   padding: 16,
   fontSize: 14,
+  bottomBuffer: 40,
 };
+
+const FONT_FAMILY = "Menlo, Monaco, Consolas, 'Courier New', monospace";
+
+// TYPE FOR HISTORY
+interface HistoryState {
+  text: string;
+  cursor: number;
+}
 
 export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
   code,
@@ -20,43 +28,103 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
 }) => {
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const highlightRef = useRef<HTMLPreElement>(null); // NEW: Ref for highlighter
+  const highlightRef = useRef<HTMLPreElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const lineCount = code.split("\n").length;
+  // --- HISTORY STATE ---
+  // We use refs so updating history doesn't trigger re-renders
+  const historyRef = useRef<HistoryState[]>([{ text: code, cursor: 0 }]);
+  const historyIndex = useRef(0);
 
-  // --- SYNTAX HIGHLIGHTER ---
-  // Memoize the highlighted nodes so they don't re-render unnecessarily
+  const lineCount = code.split("\n").length;
   const highlightedContent = useMemo(() => highlightCode(code), [code]);
+
+  // --- HISTORY HELPERS ---
+  const saveHistory = (text: string, cursor: number) => {
+    // If we are in the middle of the stack (after undoing), remove the "future"
+    if (historyIndex.current < historyRef.current.length - 1) {
+      historyRef.current = historyRef.current.slice(
+        0,
+        historyIndex.current + 1,
+      );
+    }
+
+    // Push new state
+    historyRef.current.push({ text, cursor });
+    historyIndex.current = historyRef.current.length - 1;
+
+    // Optional: Limit history size to prevent memory leaks (e.g., last 100 steps)
+    if (historyRef.current.length > 100) {
+      historyRef.current.shift();
+      historyIndex.current--;
+    }
+  };
+
+  const undo = () => {
+    if (historyIndex.current > 0) {
+      historyIndex.current--; // Move pointer back
+      const previousState = historyRef.current[historyIndex.current];
+
+      setCode(previousState.text);
+
+      // Restore cursor position after React render
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.value = previousState.text;
+          textareaRef.current.selectionStart = previousState.cursor;
+          textareaRef.current.selectionEnd = previousState.cursor;
+        }
+      }, 0);
+    }
+  };
 
   // --- SCROLL SYNC ---
   const handleScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
     const { scrollTop, scrollLeft } = e.currentTarget;
-
-    if (lineNumbersRef.current) {
-      lineNumbersRef.current.scrollTop = scrollTop;
-    }
-
+    if (lineNumbersRef.current) lineNumbersRef.current.scrollTop = scrollTop;
     if (highlightRef.current) {
       highlightRef.current.scrollTop = scrollTop;
       highlightRef.current.scrollLeft = scrollLeft;
     }
   };
 
-  // --- KEY HANDLING (Tab & Comments) ---
+  useLayoutEffect(() => {
+    if (lineNumbersRef.current && textareaRef.current) {
+      lineNumbersRef.current.scrollTop = textareaRef.current.scrollTop;
+    }
+  }, [code]);
+
+  // --- KEY HANDLING ---
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     const textarea = e.currentTarget;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
 
-    // 1. HANDLE TAB
+    // 0. HANDLE UNDO (Ctrl+Z or Cmd+Z)
+    if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+      e.preventDefault();
+      undo();
+      return;
+    }
+
+    // HELPER: Save snapshot before making a complex change
+    const snapshot = () => saveHistory(code, start);
+
+    // 1. SNAPSHOT ON TYPING BREAKS (Space / Enter)
+    // This creates "natural" undo points while typing normally
+    if (e.key === " " || e.key === "Enter") {
+      snapshot();
+    }
+
+    // 2. HANDLE TAB
     if (e.key === "Tab") {
       e.preventDefault();
-      const spaces = "  "; // 2 spaces
+      snapshot(); // Save state before tab
+
+      const spaces = "  ";
       const newCode = code.substring(0, start) + spaces + code.substring(end);
       setCode(newCode);
 
-      // Restore cursor
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.value = newCode;
@@ -66,23 +134,43 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
       }, 0);
     }
 
-    // 2. HANDLE "~" (Comment Toggle)
+    // 3. HANDLE PARENTHESES "()"
+    if (e.key === "(" && start !== end) {
+      e.preventDefault();
+      snapshot(); // Save state before wrap
+
+      const selectedText = code.substring(start, end);
+      const before = code.substring(0, start);
+      const after = code.substring(end);
+      const newCode = before + "(" + selectedText + ")" + after;
+
+      setCode(newCode);
+
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.value = newCode;
+          textareaRef.current.selectionStart = start + 1;
+          textareaRef.current.selectionEnd = end + 1;
+        }
+      }, 0);
+    }
+
+    // 4. HANDLE COMMENT TOGGLE "~"
     if (e.key === "~" && start !== end) {
       e.preventDefault();
-      const selectedText = code.substring(start, end);
+      snapshot(); // Save state before toggle
 
-      // Check surrounding characters to see if we should UN-comment
+      const selectedText = code.substring(start, end);
       const charBefore = code[start - 1];
       const charAfter = code[end];
 
       if (charBefore === "~" && charAfter === "~") {
-        // === UN-COMMENT ===
+        // Un-comment
         const before = code.substring(0, start - 1);
         const after = code.substring(end + 1);
         const newCode = before + selectedText + after;
         setCode(newCode);
 
-        // Restore Selection (Shifted Left)
         setTimeout(() => {
           if (textareaRef.current) {
             textareaRef.current.value = newCode;
@@ -91,13 +179,12 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
           }
         }, 0);
       } else {
-        // === COMMENT ===
+        // Comment
         const before = code.substring(0, start);
         const after = code.substring(end);
         const newCode = before + "~" + selectedText + "~" + after;
         setCode(newCode);
 
-        // Restore Selection (Shifted Right)
         setTimeout(() => {
           if (textareaRef.current) {
             textareaRef.current.value = newCode;
@@ -113,22 +200,13 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const validExtensions = [".txt", ".kf"];
-    const fileExtension = file.name
-      .slice(file.name.lastIndexOf("."))
-      .toLowerCase();
-
-    if (!validExtensions.includes(fileExtension)) {
-      alert("Invalid file type. Please upload a .txt or .kf file.");
-      return;
-    }
-
     try {
       const content = await file.text();
+      saveHistory(content, 0); // Save the loaded file as a history point
       setCode(content);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
-      alert("Failed to read file");
+      console.error(error);
     }
   };
 
@@ -144,30 +222,28 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
             onChange={handleFileSelect}
             className="hidden"
           />
-
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-full flex justify-center items-center gap-2 px-3 py-1 text-sm font-bold border border-(--kwento-gold) rounded hover:bg-parchment transition-all active:scale-95 active:bg-stone-300"
+            className="w-full flex justify-center items-center gap-2 px-3 py-1 text-sm font-bold border border-[#e4c060] rounded hover:bg-[#fff9e6] transition-all active:scale-95 active:bg-[#e6e2d3]"
           >
             <span className="bg-black text-white px-1 text-xs">↑</span>
             Upload
           </button>
-
           <span className="text-[9px] uppercase font-bold text-gray-400 tracking-wider text-center w-full">
             Supports .txt & .kf
           </span>
         </div>
       }
     >
-      <div className="flex h-full bg-(--kwento-bg) overflow-hidden rounded-md relative">
-        {/* 1. LINE NUMBERS (Left Sidebar) */}
+      <div className="flex h-full bg-[#fffcf5] overflow-hidden rounded-md relative">
+        {/* 1. LINE NUMBERS */}
         <div
           ref={lineNumbersRef}
-          className="flex flex-col items-end text-gray-400 bg-(--kwento-side) select-none border-r border-gray-100 overflow-hidden min-w-12"
+          className="flex flex-col items-end text-gray-400 bg-[#f7f5ee] select-none border-r border-gray-200 overflow-hidden min-w-[3rem]"
           style={{
             paddingTop: `${CONFIG.padding}px`,
-            paddingBottom: `${CONFIG.padding}px`,
-            fontFamily: "monospace",
+            paddingBottom: `${CONFIG.bottomBuffer}px`,
+            fontFamily: FONT_FAMILY,
             fontSize: `${CONFIG.fontSize}px`,
             lineHeight: `${CONFIG.lineHeight}px`,
           }}
@@ -183,17 +259,19 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
           ))}
         </div>
 
-        {/* 2. EDITOR WRAPPER (Right Side) */}
-        {/* We moved the background color here so it sits behind the layers */}
-        <div className="relative grow h-full overflow-hidden bg-(--kwento-paper)">
-          {/* LAYER 1: HIGHLIGHTER (Behind) */}
+        {/* 2. EDITOR AREA */}
+        <div className="relative grow h-full overflow-hidden bg-[#fffcf5]">
+          {/* LAYER 1: HIGHLIGHTER */}
           <pre
             ref={highlightRef}
             aria-hidden="true"
             className="absolute inset-0 m-0 pointer-events-none whitespace-pre overflow-hidden w-full text-left"
             style={{
-              padding: `${CONFIG.padding}px`,
-              fontFamily: "monospace",
+              paddingTop: `${CONFIG.padding}px`,
+              paddingLeft: `${CONFIG.padding}px`,
+              paddingRight: `${CONFIG.padding}px`,
+              paddingBottom: `${CONFIG.bottomBuffer}px`,
+              fontFamily: FONT_FAMILY,
               fontSize: `${CONFIG.fontSize}px`,
               lineHeight: `${CONFIG.lineHeight}px`,
             }}
@@ -202,8 +280,7 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
             <br />
           </pre>
 
-          {/* LAYER 2: TEXTAREA (Front) */}
-          {/* IMPORTANT: text-transparent allows Layer 1 to show through, but caret-black keeps cursor visible */}
+          {/* LAYER 2: TEXTAREA */}
           <textarea
             ref={textareaRef}
             value={code}
@@ -216,8 +293,11 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
             autoCapitalize="off"
             autoComplete="off"
             style={{
-              padding: `${CONFIG.padding}px`,
-              fontFamily: "monospace",
+              paddingTop: `${CONFIG.padding}px`,
+              paddingLeft: `${CONFIG.padding}px`,
+              paddingRight: `${CONFIG.padding}px`,
+              paddingBottom: `${CONFIG.bottomBuffer}px`,
+              fontFamily: FONT_FAMILY,
               fontSize: `${CONFIG.fontSize}px`,
               lineHeight: `${CONFIG.lineHeight}px`,
             }}
