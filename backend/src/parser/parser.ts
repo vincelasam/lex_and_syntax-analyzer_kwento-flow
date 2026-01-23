@@ -145,19 +145,22 @@ export class Parser extends parserUtils {
   }
 
   // IMPROVED: Panic mode recovery - more conservative
-  protected synchronize(): void {
+   protected synchronize(): void {
     while (!this.isAtEnd()) {
-      // Stop at semicolons
+      // Stop at semicolons (statement boundaries)
+      if (this.peek().type === TokenType.D_Semicolon) {
+        this.advance(); // Consume the semicolon
+        return;
+      }
       if (this.previous().type === TokenType.D_Semicolon) return;
       
       // Stop at block boundaries
       if (this.peek().type === TokenType.D_RBrace) return;
       if (this.peek().type === TokenType.EOF) return;
 
-      // Stop at the start of a new statement
-      if (this.isStartOfStatement(this.peek().type)) {
-          return;
-      }
+      // Don't stop at statement starters - they might be invalid in current context
+      // and would cause the parser to produce new errors that weren't in the input
+      // Instead, continue advancing until we find a safe boundary (semicolon, brace, or EOF)
 
       this.advance();
     }
@@ -499,11 +502,12 @@ export class Parser extends parserUtils {
     const variable = this.softConsume(TokenType.Identifier, 'Expected variable after choose');
     this.softConsume(TokenType.D_LBrace, 'Expected "{" after choose variable');
     const cases: any[] = [];
+    let defaultCase: any = undefined;
     while (!this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
       if (this.match(TokenType.K_Default)) {
         this.softConsume(TokenType.D_Colon, 'Expected ":" after default');
         const defaultBody = this.statementList();
-        cases.push({ type: 'DefaultCase', body: defaultBody });
+        defaultCase = { type: 'DefaultCase', body: defaultBody };
         break;
       } else {
         const caseValue = this.advance();
@@ -511,11 +515,11 @@ export class Parser extends parserUtils {
         this.match(TokenType.N_To);
         const target = this.softConsume(TokenType.Identifier, 'Expected scene name');
         this.consumeSemicolon();
-        cases.push({ value: caseValue.lexeme, target: target.lexeme });
+        cases.push({ type: 'ChooseCase', value: caseValue.lexeme, target: target.lexeme });
       }
     }
     this.softConsume(TokenType.D_RBrace, 'Expected "}" to close choose');
-    return { type: 'ChooseStatement', variable: variable.lexeme, cases };
+    return { type: 'ChooseStatement', variable: variable.lexeme, cases, defaultCase };
   }
 
   private transitionStatement(): any {
@@ -756,6 +760,6 @@ export class Parser extends parserUtils {
     const prompt = this.softConsume(TokenType.TextLiteral, 'Expected string prompt inside input()');
     this.softConsume(TokenType.D_RParen, 'Expected ")" after prompt');
     this.consumeSemicolon();
-    return { type: 'InputStatement', prompt: prompt.lexeme }
+    return { type: 'InputStatement', prompt: prompt.lexeme };
   }
 }
