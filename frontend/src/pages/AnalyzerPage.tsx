@@ -11,31 +11,31 @@ const AnalyzerPage = () => {
   const [syntaxErrors, setSyntaxErrors] = useState<SyntaxError[]>([]);
   const [hasRunAnalysis, setHasRunAnalysis] = useState(false);
 
-const handleAnalyze = async () => {
-  try {
-    const response = await fetch("http://localhost:5000/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code }),
-    });
+  const handleAnalyze = async () => {
+    try {
+      const response = await fetch("http://localhost:5000/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    setTokens(data.tokens || []);
-    setSyntaxErrors(data.syntaxErrors || []);
-  } catch (error) {
-    console.error("Analysis error:", error);
-    setSyntaxErrors([
-      { line: 0, message: "Backend connection error", type: "SYSTEM" }
-    ]);
-  }
+      setTokens(data.tokens || []);
+      setSyntaxErrors(data.syntaxErrors || []);
+    } catch (error) {
+      console.error("Analysis error:", error);
+      setSyntaxErrors([
+        { line: 0, message: "Backend connection error", type: "SYSTEM" },
+      ]);
+    }
 
-  setHasRunAnalysis(true);
-};
+    setHasRunAnalysis(true);
+  };
 
   return (
     // OUTER CONTAINER: Handles the full height of the page
-    <div className="flex flex-col w-full p-4 gap-2 h-[85vh]">
+    <div className="flex flex-col w-full p-4 h-[85vh]">
       {/* --- NEW SECTION: THE TABS --- */}
       <div className="flex gap-2 px-1">
         <button

@@ -1,5 +1,6 @@
 import React, { useRef, useLayoutEffect, useMemo } from "react";
 import { Panel } from "../components/ui/Panel";
+// IMPORT THE HIGHLIGHTER UTILITY
 import { highlightCode } from "../utils/syntaxHighlighter";
 
 interface ManuscriptEditorProps {
@@ -19,15 +20,16 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
 }) => {
   const lineNumbersRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const highlightRef = useRef<HTMLPreElement>(null);
+  const highlightRef = useRef<HTMLPreElement>(null); // NEW: Ref for highlighter
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const lineCount = code.split("\n").length;
 
-  /** 🔹 Syntax-highlighted content */
+  // --- SYNTAX HIGHLIGHTER ---
+  // Memoize the highlighted nodes so they don't re-render unnecessarily
   const highlightedContent = useMemo(() => highlightCode(code), [code]);
 
-  /** 🔹 Scroll sync (numbers, textarea, highlights) */
+  // --- SCROLL SYNC ---
   const handleScroll = (e: React.UIEvent<HTMLTextAreaElement>) => {
     const { scrollTop, scrollLeft } = e.currentTarget;
 
@@ -41,26 +43,72 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
     }
   };
 
-  /** 🔹 Keep your original TAB logic */
+  // --- KEY HANDLING (Tab & Comments) ---
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const textarea = e.currentTarget;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    // 1. HANDLE TAB
     if (e.key === "Tab") {
       e.preventDefault();
-      const textarea = e.currentTarget;
-      const start = textarea.selectionStart;
-      const end = textarea.selectionEnd;
-      const spaces = "  ";
-
+      const spaces = "  "; // 2 spaces
       const newCode = code.substring(0, start) + spaces + code.substring(end);
-
       setCode(newCode);
 
+      // Restore cursor
       setTimeout(() => {
-        textarea.selectionStart = textarea.selectionEnd = start + 2;
+        if (textareaRef.current) {
+          textareaRef.current.value = newCode;
+          textareaRef.current.selectionStart =
+            textareaRef.current.selectionEnd = start + 2;
+        }
       }, 0);
+    }
+
+    // 2. HANDLE "~" (Comment Toggle)
+    if (e.key === "~" && start !== end) {
+      e.preventDefault();
+      const selectedText = code.substring(start, end);
+
+      // Check surrounding characters to see if we should UN-comment
+      const charBefore = code[start - 1];
+      const charAfter = code[end];
+
+      if (charBefore === "~" && charAfter === "~") {
+        // === UN-COMMENT ===
+        const before = code.substring(0, start - 1);
+        const after = code.substring(end + 1);
+        const newCode = before + selectedText + after;
+        setCode(newCode);
+
+        // Restore Selection (Shifted Left)
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.value = newCode;
+            textareaRef.current.selectionStart = start - 1;
+            textareaRef.current.selectionEnd = end - 1;
+          }
+        }, 0);
+      } else {
+        // === COMMENT ===
+        const before = code.substring(0, start);
+        const after = code.substring(end);
+        const newCode = before + "~" + selectedText + "~" + after;
+        setCode(newCode);
+
+        // Restore Selection (Shifted Right)
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.value = newCode;
+            textareaRef.current.selectionStart = start + 1;
+            textareaRef.current.selectionEnd = end + 1;
+          }
+        }, 0);
+      }
     }
   };
 
-  /** 🔹 Keep your original file upload logic */
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -79,7 +127,7 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
       const content = await file.text();
       setCode(content);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch {
+    } catch (error) {
       alert("Failed to read file");
     }
   };
@@ -112,7 +160,7 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
       }
     >
       <div className="flex h-full bg-(--kwento-bg) overflow-hidden rounded-md relative">
-        {/* LINE NUMBERS */}
+        {/* 1. LINE NUMBERS (Left Sidebar) */}
         <div
           ref={lineNumbersRef}
           className="flex flex-col items-end text-gray-400 bg-(--kwento-side) select-none border-r border-gray-100 overflow-hidden min-w-12"
@@ -135,35 +183,38 @@ export const ManuscriptEditor: React.FC<ManuscriptEditorProps> = ({
           ))}
         </div>
 
-        {/* EDITOR */}
-        <div className="relative grow h-full overflow-hidden">
-          {/* SYNTAX HIGHLIGHT LAYER */}
+        {/* 2. EDITOR WRAPPER (Right Side) */}
+        {/* We moved the background color here so it sits behind the layers */}
+        <div className="relative grow h-full overflow-hidden bg-(--kwento-paper)">
+          {/* LAYER 1: HIGHLIGHTER (Behind) */}
           <pre
             ref={highlightRef}
             aria-hidden="true"
-            className="absolute inset-0 m-0 pointer-events-none whitespace-pre overflow-auto w-full"
+            className="absolute inset-0 m-0 pointer-events-none whitespace-pre overflow-hidden w-full text-left"
             style={{
               padding: `${CONFIG.padding}px`,
               fontFamily: "monospace",
               fontSize: `${CONFIG.fontSize}px`,
               lineHeight: `${CONFIG.lineHeight}px`,
-              whiteSpace: "pre",
             }}
           >
             {highlightedContent}
             <br />
           </pre>
 
-          {/* TEXTAREA */}
+          {/* LAYER 2: TEXTAREA (Front) */}
+          {/* IMPORTANT: text-transparent allows Layer 1 to show through, but caret-black keeps cursor visible */}
           <textarea
             ref={textareaRef}
             value={code}
             onChange={(e) => setCode(e.target.value)}
             onKeyDown={handleKeyDown}
             onScroll={handleScroll}
-            wrap="off"
-            className="absolute inset-0 resize-none outline-none text-transparent bg-transparent caret-black whitespace-pre overflow-auto w-full z-10"
+            className="absolute inset-0 w-full h-full resize-none outline-none text-transparent bg-transparent caret-black whitespace-pre overflow-auto z-10"
+            placeholder="Start typing your KwentoFlow code..."
             spellCheck={false}
+            autoCapitalize="off"
+            autoComplete="off"
             style={{
               padding: `${CONFIG.padding}px`,
               fontFamily: "monospace",
