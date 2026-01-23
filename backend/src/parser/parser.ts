@@ -4,7 +4,12 @@ import { ASTNode, SceneDeclaration, Statement, VariableDeclaration, Expression }
 
 export class Parser extends parserUtils {
   constructor(tokens: Token[]) {
-    super(tokens);  
+    const filteredTokens = tokens.filter(
+      (t) =>
+        t.type !== TokenType.SingleLineComment &&
+        t.type !== TokenType.MultiLineComment
+    );
+    super(filteredTokens);
   }
 
   // Main entry point: parses entire KwentoFlow program
@@ -65,10 +70,19 @@ export class Parser extends parserUtils {
     const statements: Statement[] = [];
     
     while (!this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
-      try {
+      
+      if (this.check(TokenType.K_Scene)) {
+        break;
+      }
+    
+    try {
         statements.push(this.statement());
       } catch (error) {
-        this.synchronize(); // Error recovery: skip to next valid statement
+        this.synchronize(); 
+        
+        if (this.check(TokenType.K_Scene)) {
+            break;
+        }
       }
     }
     
