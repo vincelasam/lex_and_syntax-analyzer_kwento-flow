@@ -12,37 +12,39 @@ export class Parser extends parserUtils {
     const nodes: Statement[] = [];
 
     try {
-
       // Optional start declaration (entry point)
       if (this.match(TokenType.K_Start)) {
         const sceneName = this.consume(TokenType.Identifier, 'Expected scene name after start');
         this.consume(TokenType.D_Semicolon, 'Expected ";" after story declaration');
         nodes.push({ type: 'StartDeclaration', scene: sceneName.lexeme });
+        }
+      } catch (error) {
+        this.synchronize();
       }
 
       // Parse all scenes (required)
       while (!this.isAtEnd()) {
-        if (this.match(TokenType.K_Scene)) {
-          nodes.push(this.sceneDeclaration());
-        } 
+        try{
+          if (this.match(TokenType.K_Scene)) {
+           nodes.push(this.sceneDeclaration());
+          } 
         
-        else if(this.match(TokenType.K_End)) {
-          const endNode = this.endStatement();
+          else if(this.match(TokenType.K_End)) {
+            const endNode = this.endStatement();
 
-          if(endNode.type == "EndStory") {
-            nodes.push(endNode);
-          } else {
-            this.error(this.previous(), "Invalid top-level statement. 'end scene' can only be used inside a scene" );
+           if(endNode.type == "EndStory") {
+              nodes.push(endNode);
+            } else {
+              this.error(this.previous(), "Invalid top-level statement. 'end scene' can only be used inside a scene" );
+            }
+          }else {
+          
+            this.error(this.peek(), 'Expected scene declaration');
+            this.advance();
           }
-        }
-
-        else if (!this.isAtEnd()) {
-          this.error(this.peek(), 'Expected scene declaration or end of story');
-          this.advance();
-        }
+      } catch (error) {
+          this.synchronize();
       }
-    } catch (error) {
-      // Errors already recorded in this.errors array
     }
 
     return { body: nodes, errors: this.errors };
