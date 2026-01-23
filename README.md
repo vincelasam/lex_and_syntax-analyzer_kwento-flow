@@ -25,7 +25,7 @@
 - Detects invalid characters and lexical errors
 - Generates PDF reports of token tables
 
-### **Syntax Analyzer** (Phase 2 - 🚧 In Progress)
+### **Syntax Analyzer** (Phase 2 - ✅ Complete)
 - Validates if tokens follow KwentoFlow grammar rules
 - Builds an Abstract Syntax Tree (AST)
 - Detects syntax errors (missing semicolons, braces, etc.)
@@ -177,10 +177,11 @@ kwentoflow-analyzer/
 ## 👥 Team
 
 **Backend Team:**
-- **Lexical Analyzer:** John Rich Nicolas, Vince Lasam, James Agbon, Jeff Mercado
+- **Lexical Analyzer:** John Rich Nicolas, Vince Lasam, James Agbon, Jeff Petterson Mercado
 - **Syntax Analyzer (Parser Logic):** Vince Lasam
 - **Syntax Analyzer (AST Builder):** James Agbon
 - **API Integration:** John Rich Nicolas
+- **PDF Generation:** Jeff Petterson Mercado
 
 **Frontend Team:**
 - Kevin Gerona, Clarence Ignacio
@@ -193,7 +194,7 @@ kwentoflow-analyzer/
 ## 🚀 Development Status
 
 - ✅ **Lexical Analyzer** - Complete and functional
-- 🚧 **Syntax Analyzer** - In active development
+- ✅ **Syntax Analyzer** - Complete and functional
 
 ---
 
