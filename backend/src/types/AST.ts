@@ -8,7 +8,6 @@ export interface ASTNode {
 } 
 
 export type Statement =
-  | StoryDeclaration
   | StartDeclaration
   | SceneDeclaration
   | CharacterInstantiation
