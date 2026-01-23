@@ -5,7 +5,7 @@ import { SyntaxErrorBuilder, ErrorType } from './syntaxErr';
 
 export class Parser extends parserUtils {
   constructor(tokens: Token[]) {
-    // STUDENT NOTE: Filter out comments (handled by lexer) to keep parsing stream clean.
+    // Filter out comments
     const filteredTokens = tokens.filter(
       (t) =>
         t.type !== TokenType.SingleLineComment &&
@@ -29,9 +29,8 @@ export class Parser extends parserUtils {
     return reserved.includes(token.type);
   }
 
-  // CENTRALIZED IDENTIFIER VALIDATION
-  // Checks for: Numbers, Keywords, Underscores, Symbols, and Hyphens.
-  // Returns a valid token (or dummy) to keep the parser from crashing on the next step.
+  // CENTRALIZED IDENTIFIER VALIDATION - RETURNS VALID TOKEN OR DUMMY
+  // Does NOT throw - just logs error and returns a placeholder
   private validateAndConsumeIdentifier(context: string): Token {
     const token = this.peek();
 
@@ -68,7 +67,6 @@ export class Parser extends parserUtils {
 
     if (this.match(TokenType.OP_Minus)) {
         let badName = validToken.lexeme + "-";
-        // Consume the rest of the name so we don't flag "name" as a separate error
         if (this.check(TokenType.Identifier) || this.check(TokenType.NumberLiteral)) {
             badName += this.advance().lexeme;
         }
@@ -81,7 +79,6 @@ export class Parser extends parserUtils {
 
   // --- 2. RECOVERY HELPERS ---
 
-  // Helps determine if we have successfully recovered from an error
   private isStartOfStatement(type: TokenType): boolean {
     switch (type) {
         case TokenType.K_Scene: case TokenType.K_Character: case TokenType.K_Start:
@@ -96,30 +93,61 @@ export class Parser extends parserUtils {
     }
   }
 
-  // Soft Semicolon Check: Reports missing token but doesn't throw/crash
+  // IMPROVED: Soft semicolon check - reports error but doesn't crash
   private consumeSemicolon(): void {
     if (this.match(TokenType.D_Semicolon)) return;
 
-    this.error(this.peek(), "Expected ';' after statement.", ErrorType.MISSING_TOKEN);
+    const token = this.peek();
+    this.error(token, "Expected ';' after statement.", ErrorType.MISSING_TOKEN);
 
-    // If the next token looks valid, continue parsing.
+    // Only skip ahead if we're truly lost (not at a statement boundary)
     const nextType = this.peek().type;
-    if (this.isStartOfStatement(nextType) || nextType === TokenType.D_RBrace || nextType === TokenType.EOF) {
-        return; 
+    if (!this.isStartOfStatement(nextType) && 
+        nextType !== TokenType.D_RBrace && 
+        nextType !== TokenType.EOF) {
+        // Eat tokens until we find something safe
+        while (!this.isAtEnd() && 
+               !this.isStartOfStatement(this.peek().type) &&
+               this.peek().type !== TokenType.D_RBrace &&
+               this.peek().type !== TokenType.D_Semicolon) {
+            this.advance();
+        }
+        // If we found a semicolon, consume it
+        if (this.peek().type === TokenType.D_Semicolon) {
+            this.advance();
+        }
     }
-
-    // Only sync if we are truly lost
-    throw new Error("Trigger Synchronization"); 
   }
 
-  // Panic Mode: Eats tokens until a safe delimiter is found
+  // IMPROVED: Soft consume - logs error but returns dummy token instead of throwing
+  private softConsume(type: TokenType, message: string): Token {
+    if (this.check(type)) {
+      return this.advance();
+    }
+    
+    const token = this.peek();
+    this.error(token, message, ErrorType.MISSING_TOKEN);
+    
+    // Return a dummy token with the expected type
+    return { 
+      type, 
+      lexeme: TokenType[type], 
+      line: token.line, 
+      column: token.column 
+    };
+  }
+
+  // IMPROVED: Panic mode recovery - more conservative
   protected synchronize(): void {
     while (!this.isAtEnd()) {
+      // Stop at semicolons
       if (this.previous().type === TokenType.D_Semicolon) return;
-      if (this.peek().type === TokenType.D_RBrace) return; // Stop at block end
-      if (this.peek().type === TokenType.EOF) return;      // Stop at file end
+      
+      // Stop at block boundaries
+      if (this.peek().type === TokenType.D_RBrace) return;
+      if (this.peek().type === TokenType.EOF) return;
 
-      // If we recognize the start of a new statement, stop skipping!
+      // Stop at the start of a new statement
       if (this.isStartOfStatement(this.peek().type)) {
           return;
       }
@@ -133,24 +161,24 @@ export class Parser extends parserUtils {
   public parse(): { body: ASTNode[], errors: any[] } {
     const nodes: Statement[] = [];
 
-    try {
-      // 1. Character Declarations (Must be top-level)
-      while (this.match(TokenType.K_Character)) {
-        try {
-          nodes.push(this.characterDeclaration());
-        } catch (error) {
-          this.synchronize();
-        }
+    // 1. Character Declarations (Must be top-level)
+    while (this.match(TokenType.K_Character)) {
+      try {
+        nodes.push(this.characterDeclaration());
+      } catch (error) {
+        this.synchronize();
       }
+    }
 
-      // 2. Start Scene Declaration
-      if (this.match(TokenType.K_Start)) {
+    // 2. Start Scene Declaration
+    if (this.match(TokenType.K_Start)) {
+      try {
         const sceneName = this.validateAndConsumeIdentifier("a scene name");
         this.consumeSemicolon();
         nodes.push({ type: 'StartDeclaration', scene: sceneName.lexeme });
+      } catch (error) {
+        this.synchronize();
       }
-    } catch (error) {
-      this.synchronize();
     }
 
     // 3. Main Body (Scenes, Globals, DBs)
@@ -178,10 +206,10 @@ export class Parser extends parserUtils {
         else {
           // Unexpected token at top level
           const token = this.peek();
-          const suggestion = this.getKeywordSuggestion(token.lexeme); // Fuzzy Match
+          const suggestion = this.getKeywordSuggestion(token.lexeme);
           this.error(token, `Unexpected token at top level: '${token.lexeme}'`, ErrorType.INVALID_STATEMENT, suggestion);
-          this.advance(); // Consume to avoid loop
-          throw new Error("Trigger Synchronization"); 
+          this.advance(); // Consume the bad token
+          // DON'T synchronize - just continue to next token
         }
       } catch (error) {
         this.synchronize();
@@ -193,9 +221,9 @@ export class Parser extends parserUtils {
 
   private sceneDeclaration(): SceneDeclaration {
     const name = this.validateAndConsumeIdentifier("a scene name");
-    this.consume(TokenType.D_LBrace, 'Expected "{" after scene name');
+    this.softConsume(TokenType.D_LBrace, 'Expected "{" after scene name');
     const body = this.statementList();
-    this.consume(TokenType.D_RBrace, 'Expected "}" to close scene');
+    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close scene');
     return { type: 'SceneDeclaration', name: name.lexeme, body };
   }
 
@@ -203,11 +231,10 @@ export class Parser extends parserUtils {
     const statements: Statement[] = [];
 
     while (!this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
-      if (this.check(TokenType.K_Scene)) break; // Safety check
+      if (this.check(TokenType.K_Scene)) break;
 
       try {
         const result = this.statement();
-        // Flatten logic for multiple variable declarations
         if (Array.isArray(result)) {
             statements.push(...result);
         } else {
@@ -224,7 +251,7 @@ export class Parser extends parserUtils {
   // --- 4. STATEMENT DISPATCHER ---
 
   private statement(): Statement | Statement[] {
-    if (this.match(TokenType.D_Semicolon)) return []; // Ignore empty ;
+    if (this.match(TokenType.D_Semicolon)) return [];
 
     if (this.match(TokenType.R_Text, TokenType.R_Number, TokenType.R_Boolean)) {
       return this.varDeclaration(this.previous().type);
@@ -257,24 +284,23 @@ export class Parser extends parserUtils {
       return this.thruStatement();
     }
     
-    // ERROR HANDLER: Nested Characters
-    // We report the error but consume the block so the parser resets correctly.
+    // Nested character error
     if (this.match(TokenType.K_Character)) {
       this.error(this.previous(), "Character declarations are not allowed inside scenes. Move them to the top of the file.", ErrorType.INVALID_STATEMENT);
-      this.characterDeclaration(); // Consume it!
-      return []; // Return empty so we move to next line
+      this.characterDeclaration();
+      return [];
     }
 
     if (this.check(TokenType.Identifier)) {
       const savedPos = this.current;
       const identifier = this.advance();
 
-      // Check for bad syntax: var-name
+      // Check for hyphenated names
       if (this.check(TokenType.OP_Minus)) {
          this.current = savedPos; 
       }
 
-      // Input
+      // Input statement
       if (this.check(TokenType.OP_Assign)) {
         this.advance(); 
         if (this.check(TokenType.K_Input)) {
@@ -292,11 +318,13 @@ export class Parser extends parserUtils {
       const savedPos3 = this.current;
       const firstIdentifier = this.advance();
       
-      // Instantiation
+      // Character instantiation
       if (this.check(TokenType.Identifier)) {
         const instanceToken = this.peek();
-        // Check invalid instance name (Number, Keyword)
-        if (instanceToken.type === TokenType.NumberLiteral || this.isReserved(instanceToken) || instanceToken.type !== TokenType.Identifier) {
+        
+        if (instanceToken.type === TokenType.NumberLiteral || 
+            this.isReserved(instanceToken) || 
+            instanceToken.type !== TokenType.Identifier) {
              this.validateAndConsumeIdentifier("an instance name");
              if (this.match(TokenType.D_Semicolon)) {
                  return { type: 'CharacterInstantiation', characterType: firstIdentifier.lexeme, instanceName: "ERROR" };
@@ -305,7 +333,7 @@ export class Parser extends parserUtils {
 
         const secondIdentifier = this.advance();
         
-        // Check hyphenated instance name
+        // Check for hyphenated instance name
         if (this.match(TokenType.OP_Minus)) {
              this.current = savedPos3; 
              this.advance(); 
@@ -324,27 +352,29 @@ export class Parser extends parserUtils {
         this.current = savedPos3;
       }
       
+      // Says statement
       if (this.check(TokenType.K_Says)) {
         this.current = savedPos3;
         return this.saysStatement();
       }
       
-      // Fallback: Unknown Identifier usage
+      // Unknown identifier usage
       this.current = savedPos3;
       const badToken = this.advance(); 
-      const suggestion = this.getKeywordSuggestion(badToken.lexeme); // Fuzzy Match
-      const err = SyntaxErrorBuilder.invalidStatement(badToken.lexeme, badToken.line, badToken.column, suggestion);
-      this.errors.push(err);
-      throw new Error(err.message);
+      const suggestion = this.getKeywordSuggestion(badToken.lexeme);
+      this.error(badToken, `Invalid statement starting with '${badToken.lexeme}'`, ErrorType.INVALID_STATEMENT, suggestion);
+      
+      // DON'T throw - just skip to semicolon or next statement
+      this.consumeSemicolon();
+      return [];
     }
 
-    // Fallback: Completely unknown token
+    // Completely unknown token
     const token = this.peek();
     const suggestion = this.getKeywordSuggestion(token.lexeme);
-    const err = SyntaxErrorBuilder.invalidStatement(token.lexeme, token.line, token.column, suggestion);
-    this.errors.push(err);
-    this.advance(); // Consume to avoid loop
-    throw new Error(err.message);
+    this.error(token, `Unexpected token: '${token.lexeme}'`, ErrorType.INVALID_STATEMENT, suggestion);
+    this.advance();
+    return [];
   }
 
   private varDeclaration(dataType: TokenType): VariableDeclaration[] {
@@ -364,8 +394,8 @@ export class Parser extends parserUtils {
 
   private dbDeclaration(): any {
     const name = this.validateAndConsumeIdentifier("a database name");
-    this.consume(TokenType.OP_Assign, 'Expected "=" after db name');
-    const connectionString = this.consume(TokenType.TextLiteral, 'Expected connection string');
+    this.softConsume(TokenType.OP_Assign, 'Expected "=" after db name');
+    const connectionString = this.softConsume(TokenType.TextLiteral, 'Expected connection string');
     this.consumeSemicolon();
     return { type: 'DbDeclaration', name: name.lexeme, connectionString: connectionString.lexeme };
   }
@@ -373,26 +403,26 @@ export class Parser extends parserUtils {
   private assignment(): any {
     const name = this.validateAndConsumeIdentifier("a variable name");
     if (this.match(TokenType.D_Dot)) {
-      const property = this.consume(TokenType.Identifier, 'Expected property name after "."');
-      this.consume(TokenType.OP_Assign, 'Expected "=" in assignment');
+      const property = this.softConsume(TokenType.Identifier, 'Expected property name after "."');
+      this.softConsume(TokenType.OP_Assign, 'Expected "=" in assignment');
       const value = this.expression();
       this.consumeSemicolon();
       return { type: 'Assignment', target: { type: 'MemberAccess', object: name.lexeme, property: property.lexeme }, value };
     }
-    this.consume(TokenType.OP_Assign, 'Expected "=" in assignment');
+    this.softConsume(TokenType.OP_Assign, 'Expected "=" in assignment');
     const value = this.expression();
     this.consumeSemicolon();
     return { type: 'Assignment', target: name.lexeme, value };
   }
 
   private conditionalStatement(): any {
-    this.consume(TokenType.D_LParen, 'Expected "(" after when');
+    this.softConsume(TokenType.D_LParen, 'Expected "(" after when');
     const condition = this.expression();
-    this.consume(TokenType.D_RParen, 'Expected ")" after condition');
+    this.softConsume(TokenType.D_RParen, 'Expected ")" after condition');
     this.match(TokenType.N_Then);
-    this.consume(TokenType.D_LBrace, 'Expected "{" after condition');
+    this.softConsume(TokenType.D_LBrace, 'Expected "{" after condition');
     const body = this.statementList();
-    this.consume(TokenType.D_RBrace, 'Expected "}" to close when block');
+    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close when block');
     return { type: 'ConditionalStatement', condition, body };
   }
 
@@ -404,7 +434,7 @@ export class Parser extends parserUtils {
        return { type: 'CharacterDeclaration', name: name.lexeme, fields: [], perceivesBlocks: [block] };
     }
 
-    this.consume(TokenType.D_LBrace, 'Expected "{" after character name');
+    this.softConsume(TokenType.D_LBrace, 'Expected "{" after character name');
     const fields: any[] = [];
     const perceivesBlocks: any[] = [];
 
@@ -413,69 +443,69 @@ export class Parser extends parserUtils {
         perceivesBlocks.push(this.perceivesBlock());
       } else {
         const fieldName = this.validateAndConsumeIdentifier("a field name");
-        this.consume(TokenType.D_Colon, 'Expected ":" after field name');
+        this.softConsume(TokenType.D_Colon, 'Expected ":" after field name');
         const fieldType = this.advance();
         this.consumeSemicolon();
         fields.push({ name: fieldName.lexeme, type: TokenType[fieldType.type] });
       }
     }
 
-    this.consume(TokenType.D_RBrace, 'Expected "}" to close character');
+    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close character');
     return { type: 'CharacterDeclaration', name: name.lexeme, fields, perceivesBlocks };
   }
 
   private doWhileStatement(): any {
-    this.consume(TokenType.D_LBrace, 'Expected "{" after do');
+    this.softConsume(TokenType.D_LBrace, 'Expected "{" after do');
     const body = this.statementList();
-    this.consume(TokenType.D_RBrace, 'Expected "}" after do block');
-    this.consume(TokenType.K_When, 'Expected "when" after do block');
-    this.consume(TokenType.D_LParen, 'Expected "(" after when');
+    this.softConsume(TokenType.D_RBrace, 'Expected "}" after do block');
+    this.softConsume(TokenType.K_When, 'Expected "when" after do block');
+    this.softConsume(TokenType.D_LParen, 'Expected "(" after when');
     const condition = this.expression();
-    this.consume(TokenType.D_RParen, 'Expected ")" after condition');
+    this.softConsume(TokenType.D_RParen, 'Expected ")" after condition');
     this.consumeSemicolon();
     return { type: 'DoWhileStatement', body, condition };
   }
 
   private chooseStatement(): any {
-    const variable = this.consume(TokenType.Identifier, 'Expected variable after choose');
-    this.consume(TokenType.D_LBrace, 'Expected "{" after choose variable');
+    const variable = this.softConsume(TokenType.Identifier, 'Expected variable after choose');
+    this.softConsume(TokenType.D_LBrace, 'Expected "{" after choose variable');
     const cases: any[] = [];
     while (!this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
       if (this.match(TokenType.K_Default)) {
-        this.consume(TokenType.D_Colon, 'Expected ":" after default');
+        this.softConsume(TokenType.D_Colon, 'Expected ":" after default');
         const defaultBody = this.statementList();
         cases.push({ type: 'DefaultCase', body: defaultBody });
         break;
       } else {
         const caseValue = this.advance();
-        this.consume(TokenType.K_Transition, 'Expected "transition" after case value');
+        this.softConsume(TokenType.K_Transition, 'Expected "transition" after case value');
         this.match(TokenType.N_To);
-        const target = this.consume(TokenType.Identifier, 'Expected scene name');
+        const target = this.softConsume(TokenType.Identifier, 'Expected scene name');
         this.consumeSemicolon();
         cases.push({ value: caseValue.lexeme, target: target.lexeme });
       }
     }
-    this.consume(TokenType.D_RBrace, 'Expected "}" to close choose');
+    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close choose');
     return { type: 'ChooseStatement', variable: variable.lexeme, cases };
   }
 
   private transitionStatement(): any {
     this.match(TokenType.N_To);
-    const target = this.consume(TokenType.Identifier, 'Expected scene name after transition');
+    const target = this.softConsume(TokenType.Identifier, 'Expected scene name after transition');
     this.consumeSemicolon();
     return { type: 'TransitionStatement', target: target.lexeme };
   }
 
   private logStatement(): any {
-    const message = this.consume(TokenType.TextLiteral, 'Expected message after log');
+    const message = this.softConsume(TokenType.TextLiteral, 'Expected message after log');
     this.consumeSemicolon();
     return { type: 'LogStatement', message: message.lexeme };
   }
 
   private saysStatement(): any {
-    const character = this.consume(TokenType.Identifier, 'Expected character name');
-    this.consume(TokenType.K_Says, 'Expected "says" after character');
-    const message = this.consume(TokenType.TextLiteral, 'Expected message');
+    const character = this.softConsume(TokenType.Identifier, 'Expected character name');
+    this.softConsume(TokenType.K_Says, 'Expected "says" after character');
+    const message = this.softConsume(TokenType.TextLiteral, 'Expected message');
     this.consumeSemicolon();
     return { type: 'SaysStatement', character: character.lexeme, message: message.lexeme };
   }
@@ -488,7 +518,7 @@ export class Parser extends parserUtils {
         node = { type: 'EndStory' };
     } else {
         this.error(this.peek(), 'Expected "scene" or "story" after end', ErrorType.INVALID_STATEMENT);
-        throw new Error('Invalid end statement');
+        return { type: 'EndScene' }; // Return dummy instead of throwing
     }
     this.consumeSemicolon();
     return node;
@@ -562,20 +592,20 @@ export class Parser extends parserUtils {
 
     if (this.match(TokenType.D_LParen)) {
       const expr = this.expression();
-      this.consume(TokenType.D_RParen, 'Expected ")" after expression');
+      this.softConsume(TokenType.D_RParen, 'Expected ")" after expression');
       return expr;
     }
 
     if (this.check(TokenType.Identifier)) {
       const name = this.advance();
       if (this.match(TokenType.D_Dot)) {
-        const property = this.consume(TokenType.Identifier, 'Expected property or method name after "."');
+        const property = this.softConsume(TokenType.Identifier, 'Expected property or method name after "."');
         if (this.match(TokenType.D_LParen)) {
           const args: Expression[] = [];
           if (!this.check(TokenType.D_RParen)) {
             do { args.push(this.expression()); } while (this.match(TokenType.D_Comma));
           }
-          this.consume(TokenType.D_RParen, 'Expected ")" after arguments');
+          this.softConsume(TokenType.D_RParen, 'Expected ")" after arguments');
           return { type: 'MethodCall', object: name.lexeme, method: property.lexeme, arguments: args };
         }
         return { type: 'MemberAccess', object: name.lexeme, property: property.lexeme };
@@ -585,25 +615,26 @@ export class Parser extends parserUtils {
         if (!this.check(TokenType.D_RParen)) {
           do { args.push(this.expression()); } while (this.match(TokenType.D_Comma));
         }
-        this.consume(TokenType.D_RParen, 'Expected ")" after arguments');
+        this.softConsume(TokenType.D_RParen, 'Expected ")" after arguments');
         return { type: 'FunctionCall', name: name.lexeme, arguments: args };
       }
       return { type: 'Identifier', name: name.lexeme };
     }
 
     this.error(this.peek(), 'Expected expression', ErrorType.INVALID_EXPRESSION);
-    throw new Error('Expected expression');
+    // Return dummy expression instead of throwing
+    return { type: 'Literal', value: 'ERROR' };
   }
 
   private perceivesBlock(): any {
     const target = this.validateAndConsumeIdentifier("a target name");
     let fullTarget = target.lexeme;
     if (this.match(TokenType.D_Dot)) {
-      const table = this.consume(TokenType.Identifier, 'Expected table name after "."');
+      const table = this.softConsume(TokenType.Identifier, 'Expected table name after "."');
       fullTarget = `${target.lexeme}.${table.lexeme}`;
     }
 
-    this.consume(TokenType.D_LBrace, 'Expected "{" after perceives target');
+    this.softConsume(TokenType.D_LBrace, 'Expected "{" after perceives target');
     const policies: any[] = [];
     while (!this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
       if (this.match(TokenType.K_Masking)) {
@@ -615,7 +646,7 @@ export class Parser extends parserUtils {
         this.advance();
       }
     }
-    this.consume(TokenType.D_RBrace, 'Expected "}" to close perceives');
+    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close perceives');
     return { type: 'PerceivesBlock', target: fullTarget, policies };
   }
 
@@ -637,18 +668,18 @@ export class Parser extends parserUtils {
 
   private thruStatement(): any {
     const character = this.validateAndConsumeIdentifier("a character name");
-    this.consume(TokenType.D_LBrace, 'Expected "{" after character type in thru statement');
+    this.softConsume(TokenType.D_LBrace, 'Expected "{" after character type in thru statement');
     const body = this.statementList();
-    this.consume(TokenType.D_RBrace, 'Expected "}" to close thru block');
+    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close thru block');
     return { type: 'ThruStatement', character: character.lexeme, body };
   }
 
   private inputStatement(): any {
-    this.consume(TokenType.OP_Assign, 'Expected "=" in input statement');
-    this.consume(TokenType.K_Input, 'Expected "input" keyword');
-    this.consume(TokenType.D_LParen, 'Expected "(" after input');
-    const prompt = this.consume(TokenType.TextLiteral, 'Expected string prompt inside input()');
-    this.consume(TokenType.D_RParen, 'Expected ")" after prompt');
+    this.softConsume(TokenType.OP_Assign, 'Expected "=" in input statement');
+    this.softConsume(TokenType.K_Input, 'Expected "input" keyword');
+    this.softConsume(TokenType.D_LParen, 'Expected "(" after input');
+    const prompt = this.softConsume(TokenType.TextLiteral, 'Expected string prompt inside input()');
+    this.softConsume(TokenType.D_RParen, 'Expected ")" after prompt');
     this.consumeSemicolon();
     return { type: 'InputStatement', prompt: prompt.lexeme }
   }
