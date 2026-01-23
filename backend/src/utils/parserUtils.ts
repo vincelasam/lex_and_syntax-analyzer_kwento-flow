@@ -68,9 +68,9 @@ export class parserUtils {
 
     while (!this.isAtEnd()) {
       if (this.previous().type === TokenType.D_Semicolon) return;
-
       if (this.check(TokenType.D_RBrace)) return;
-switch (this.peek().type) {
+
+  switch (this.peek().type) {
         case TokenType.K_Scene:
         case TokenType.K_Character:
         case TokenType.K_When:
@@ -86,7 +86,6 @@ switch (this.peek().type) {
         case TokenType.R_Number:
         case TokenType.R_Boolean:
         case TokenType.R_DB:
-        case TokenType.Identifier: 
         return;
       }
 
