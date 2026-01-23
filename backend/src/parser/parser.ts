@@ -16,6 +16,7 @@ export class Parser extends parserUtils {
       // Optional start declaration (entry point)
       if (this.match(TokenType.K_Start)) {
         const sceneName = this.consume(TokenType.Identifier, 'Expected scene name after start');
+        this.consume(TokenType.D_Semicolon, 'Expected ";" after story declaration');
         nodes.push({ type: 'StartDeclaration', scene: sceneName.lexeme });
       }
 
