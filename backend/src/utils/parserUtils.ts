@@ -69,6 +69,8 @@ export class parserUtils {
     while (!this.isAtEnd()) {
       if (this.previous().type === TokenType.D_Semicolon) return;
 
+      if (this.check(TokenType.D_RBrace)) return;
+
       switch (this.peek().type) {
         case TokenType.K_Scene:
         case TokenType.K_Character:
