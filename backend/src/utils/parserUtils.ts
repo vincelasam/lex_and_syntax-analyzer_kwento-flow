@@ -76,18 +76,23 @@ export class parserUtils {
     this.errors.push(err);
   }
 
-  protected getKeywordSuggestion(typo: string): string | undefined {
+ protected getKeywordSuggestion(typo: string): string | undefined {
     const validKeywords = Object.keys(KEYWORDS);
     let bestMatch: string | undefined;
     let minDistance = Infinity;
 
+    // Convert typo to lowercase for case-insensitive comparison
+    const typoLower = typo.toLowerCase();
+
     for (const keyword of validKeywords) {
-      const dist = this.levenshtein(typo, keyword);
-      // Threshold: only suggest if it's somewhat close (distance < 3)
-      if (dist < 3 && dist < keyword.length * 0.4) { 
+      // Compare case-insensitively
+      const dist = this.levenshtein(typoLower, keyword.toLowerCase());
+      // More lenient threshold: distance < 3 OR distance < 50% of keyword length
+      // This allows suggestions for longer keywords with more typos
+      if (dist < 3 || (dist < keyword.length * 0.5 && dist <= Math.max(2, keyword.length / 2))) { 
         if (dist < minDistance) {
           minDistance = dist;
-          bestMatch = keyword;
+          bestMatch = keyword; // Return the original keyword (not lowercase)
         }
       }
     }

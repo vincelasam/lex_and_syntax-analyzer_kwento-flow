@@ -217,7 +217,10 @@ export class Parser extends parserUtils {
           // Unexpected token at top level
           const token = this.peek();
           const suggestion = this.getKeywordSuggestion(token.lexeme);
-          this.error(token, `Unexpected token at top level: '${token.lexeme}'`, ErrorType.INVALID_STATEMENT, suggestion);
+          const message = suggestion
+           ? `Unexpected token at top level: '${token.lexeme}'. Did you mean '${suggestion}'?`
+           : `Unexpected token at top level: '${token.lexeme}'`;
+          this.error(token, message, ErrorType.INVALID_STATEMENT, suggestion);
           this.advance(); // Consume the bad token
           // DON'T synchronize - just continue to next token
         }
@@ -383,7 +386,10 @@ export class Parser extends parserUtils {
       this.current = savedPos3;
       const badToken = this.advance(); 
       const suggestion = this.getKeywordSuggestion(badToken.lexeme);
-      this.error(badToken, `Invalid statement starting with '${badToken.lexeme}'`, ErrorType.INVALID_STATEMENT, suggestion);
+      const message = suggestion
+      ? `Invalid statement starting with '${badToken.lexeme}'. Did you mean '${suggestion}'?`
+      : `Invalid statement starting with '${badToken.lexeme}'`;
+      this.error(badToken, message, ErrorType.INVALID_STATEMENT, suggestion);
       
       // DON'T throw - just skip to semicolon or next statement
       this.consumeSemicolon();
@@ -687,7 +693,10 @@ export class Parser extends parserUtils {
       } else {
         const token = this.peek();
         const suggestion = this.getKeywordSuggestion(token.lexeme);
-        this.error(token, `Invalid policy in perceives block. Expected 'masking' or 'where', found '${token.lexeme}'`, ErrorType.INVALID_STATEMENT, suggestion);
+        const message = suggestion
+        ? `Invalid policy in perceives block. Expected 'masking' or 'where', found '${token.lexeme}'. Did you mean '${suggestion}'?`
+        : `Invalid policy in perceives block. Expected 'masking' or 'where', found '${token.lexeme}'`;
+        this.error(token, message, ErrorType.INVALID_STATEMENT, suggestion);
         this.advance();
         // Try to recover by skipping to semicolon
         while (!this.check(TokenType.D_Semicolon) && !this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
@@ -756,7 +765,7 @@ export class Parser extends parserUtils {
   private inputStatement(): any {
     this.softConsume(TokenType.OP_Assign, 'Expected "=" in input statement');
     this.softConsume(TokenType.K_Input, 'Expected "input" keyword');
-    this.softConsume(TokenType.D_LParen, 'Expected "(" after input');
+    this.softConsume(TokenType.D_LParen, 'Expected "(" after input'); 
     const prompt = this.softConsume(TokenType.TextLiteral, 'Expected string prompt inside input()');
     this.softConsume(TokenType.D_RParen, 'Expected ")" after prompt');
     this.consumeSemicolon();
