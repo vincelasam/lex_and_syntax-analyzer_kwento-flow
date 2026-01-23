@@ -19,11 +19,18 @@ export class Parser extends parserUtils {
   // Check if a token is a reserved keyword
   private isReserved(token: Token): boolean {
     const reserved = [
+        // Scene and flow control
         TokenType.K_Scene, TokenType.K_Story, TokenType.K_Character, TokenType.K_Start,
         TokenType.K_End, TokenType.K_When, TokenType.K_Do, TokenType.K_Choose,
         TokenType.K_Log, TokenType.K_Transition, TokenType.K_Rem, TokenType.K_Input,
-        TokenType.K_Says, TokenType.K_Perceives, TokenType.K_Masking, TokenType.K_Where,
-        TokenType.K_Thru, TokenType.K_Default,
+        // Character interaction keywords
+        TokenType.K_Says,         // For character dialogue
+        TokenType.K_Perceives,    // For data access policies (in character declarations)
+        TokenType.K_Masking,      // For field masking in perceives blocks
+        TokenType.K_Where,        // For filtering conditions in perceives blocks
+        TokenType.K_Thru,         // For character-scoped execution blocks
+        TokenType.K_Default,
+        // Data types
         TokenType.R_Text, TokenType.R_Number, TokenType.R_Boolean, TokenType.R_DB
     ];
     return reserved.includes(token.type);
@@ -253,15 +260,22 @@ export class Parser extends parserUtils {
   private statement(): Statement | Statement[] {
     if (this.match(TokenType.D_Semicolon)) return [];
 
+    // Variable declarations
     if (this.match(TokenType.R_Text, TokenType.R_Number, TokenType.R_Boolean)) {
       return this.varDeclaration(this.previous().type);
     }
+    
+    // Database declaration
     if (this.match(TokenType.R_DB)) {
       return this.dbDeclaration();
     }
+    
+    // Assignment (rem keyword)
     if (this.match(TokenType.K_Rem)) {
       return this.assignment();
     }
+    
+    // Control flow
     if (this.match(TokenType.K_When)) {
       return this.conditionalStatement();
     }
@@ -271,6 +285,8 @@ export class Parser extends parserUtils {
     if (this.match(TokenType.K_Choose)) {
       return this.chooseStatement();
     }
+    
+    // Scene transitions and output
     if (this.match(TokenType.K_Transition)) {
       return this.transitionStatement();
     }
@@ -280,6 +296,8 @@ export class Parser extends parserUtils {
     if (this.match(TokenType.K_End)) {
       return this.endStatement();
     }
+    
+    // Character-scoped execution block (NEW FEATURE)
     if (this.match(TokenType.K_Thru)) {
       return this.thruStatement();
     }
@@ -427,14 +445,14 @@ export class Parser extends parserUtils {
   }
 
   private characterDeclaration(): any {
-    const name = this.validateAndConsumeIdentifier("a character name");
+    const name = this.validateAndConsumeIdentifier("a character type name");
 
     if (this.match(TokenType.K_Perceives)) {
        const block = this.perceivesBlock();
        return { type: 'CharacterDeclaration', name: name.lexeme, fields: [], perceivesBlocks: [block] };
     }
 
-    this.softConsume(TokenType.D_LBrace, 'Expected "{" after character name');
+    this.softConsume(TokenType.D_LBrace, 'Expected "{" to start character declaration');
     const fields: any[] = [];
     const perceivesBlocks: any[] = [];
 
@@ -442,15 +460,26 @@ export class Parser extends parserUtils {
       if (this.match(TokenType.K_Perceives)) {
         perceivesBlocks.push(this.perceivesBlock());
       } else {
-        const fieldName = this.validateAndConsumeIdentifier("a field name");
-        this.softConsume(TokenType.D_Colon, 'Expected ":" after field name');
+        const fieldName = this.validateAndConsumeIdentifier("a character field name");
+        this.softConsume(TokenType.D_Colon, 'Expected ":" after field name in character declaration');
+        
+        // Validate field type
+        if (!this.check(TokenType.R_Text) && !this.check(TokenType.R_Number) && !this.check(TokenType.R_Boolean)) {
+          const token = this.peek();
+          this.error(token, `Invalid field type '${token.lexeme}'. Expected 'text', 'number', or 'boolean'`, ErrorType.INVALID_STATEMENT);
+          this.advance();
+          this.consumeSemicolon();
+          fields.push({ name: fieldName.lexeme, type: 'ERROR' });
+          continue;
+        }
+        
         const fieldType = this.advance();
         this.consumeSemicolon();
         fields.push({ name: fieldName.lexeme, type: TokenType[fieldType.type] });
       }
     }
 
-    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close character');
+    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close character declaration');
     return { type: 'CharacterDeclaration', name: name.lexeme, fields, perceivesBlocks };
   }
 
@@ -503,9 +532,9 @@ export class Parser extends parserUtils {
   }
 
   private saysStatement(): any {
-    const character = this.softConsume(TokenType.Identifier, 'Expected character name');
-    this.softConsume(TokenType.K_Says, 'Expected "says" after character');
-    const message = this.softConsume(TokenType.TextLiteral, 'Expected message');
+    const character = this.softConsume(TokenType.Identifier, 'Expected character instance name before "says"');
+    this.softConsume(TokenType.K_Says, 'Expected "says" keyword in dialogue statement');
+    const message = this.softConsume(TokenType.TextLiteral, 'Expected text message in quotes after "says"');
     this.consumeSemicolon();
     return { type: 'SaysStatement', character: character.lexeme, message: message.lexeme };
   }
@@ -523,6 +552,8 @@ export class Parser extends parserUtils {
     this.consumeSemicolon();
     return node;
   }
+
+  // --- 6. EXPRESSION PARSING ---
 
   private expression(): Expression { return this.logicalOr(); }
 
@@ -626,15 +657,23 @@ export class Parser extends parserUtils {
     return { type: 'Literal', value: 'ERROR' };
   }
 
+  // --- 7. NEW LANGUAGE FEATURES ---
+  // These methods handle perceives, thru, masking, and where keywords
+  
+  /**
+   * Parses a perceives block within a character declaration
+   * Syntax: perceives <target>[.<table>] { <policies> }
+   * Policies can be: masking or where
+   */
   private perceivesBlock(): any {
-    const target = this.validateAndConsumeIdentifier("a target name");
+    const target = this.validateAndConsumeIdentifier("a perceives target (character or database name)");
     let fullTarget = target.lexeme;
     if (this.match(TokenType.D_Dot)) {
-      const table = this.softConsume(TokenType.Identifier, 'Expected table name after "."');
+      const table = this.softConsume(TokenType.Identifier, 'Expected table name after "." in perceives target');
       fullTarget = `${target.lexeme}.${table.lexeme}`;
     }
 
-    this.softConsume(TokenType.D_LBrace, 'Expected "{" after perceives target');
+    this.softConsume(TokenType.D_LBrace, 'Expected "{" to start perceives block');
     const policies: any[] = [];
     while (!this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
       if (this.match(TokenType.K_Masking)) {
@@ -642,35 +681,71 @@ export class Parser extends parserUtils {
       } else if (this.match(TokenType.K_Where)) {
         policies.push(this.wherePolicy());
       } else {
-        this.error(this.peek(), 'Expected masking or where in perceives block', ErrorType.INVALID_STATEMENT);
+        const token = this.peek();
+        const suggestion = this.getKeywordSuggestion(token.lexeme);
+        this.error(token, `Invalid policy in perceives block. Expected 'masking' or 'where', found '${token.lexeme}'`, ErrorType.INVALID_STATEMENT, suggestion);
         this.advance();
+        // Try to recover by skipping to semicolon
+        while (!this.check(TokenType.D_Semicolon) && !this.check(TokenType.D_RBrace) && !this.isAtEnd()) {
+          this.advance();
+        }
+        if (this.check(TokenType.D_Semicolon)) this.advance();
       }
     }
-    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close perceives');
+    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close perceives block');
     return { type: 'PerceivesBlock', target: fullTarget, policies };
   }
 
+  /**
+   * Parses a masking policy
+   * Syntax: masking <field1>[, <field2>, ...];
+   * Specifies which fields should be hidden/masked from the character
+   */
   private maskingPolicy(): any {
     const fields: string[] = [];
+    
+    if (this.check(TokenType.D_Semicolon)) {
+      this.error(this.peek(), 'Masking policy requires at least one field name', ErrorType.INVALID_STATEMENT);
+      this.advance();
+      return { type: 'MaskingPolicy', fields: [] };
+    }
+    
     do {
-      const field = this.validateAndConsumeIdentifier("a field name");
+      const field = this.validateAndConsumeIdentifier("a field name in masking policy");
       fields.push(field.lexeme);
     } while (this.match(TokenType.D_Comma));
+    
     this.consumeSemicolon();
     return { type: 'MaskingPolicy', fields };
   }
 
+  /**
+   * Parses a where policy (filtering condition)
+   * Syntax: where <condition>;
+   * Specifies which rows the character can access based on a condition
+   */
   private wherePolicy(): any {
+    if (this.check(TokenType.D_Semicolon)) {
+      this.error(this.peek(), 'Where policy requires a condition expression', ErrorType.INVALID_STATEMENT);
+      this.advance();
+      return { type: 'WherePolicy', condition: { type: 'Literal', value: 'ERROR' } };
+    }
+    
     const condition = this.expression();
     this.consumeSemicolon();
     return { type: 'WherePolicy', condition };
   }
 
+  /**
+   * Parses a thru statement (character-scoped execution block)
+   * Syntax: thru <characterInstance> { <statements> }
+   * Executes statements with the character's data access permissions
+   */
   private thruStatement(): any {
-    const character = this.validateAndConsumeIdentifier("a character name");
-    this.softConsume(TokenType.D_LBrace, 'Expected "{" after character type in thru statement');
+    const character = this.validateAndConsumeIdentifier("a character instance name in thru statement");
+    this.softConsume(TokenType.D_LBrace, 'Expected "{" to start thru statement block');
     const body = this.statementList();
-    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close thru block');
+    this.softConsume(TokenType.D_RBrace, 'Expected "}" to close thru statement block');
     return { type: 'ThruStatement', character: character.lexeme, body };
   }
 
