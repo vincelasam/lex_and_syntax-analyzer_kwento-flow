@@ -26,8 +26,18 @@ export class Parser extends parserUtils {
           nodes.push(this.sceneDeclaration());
         } 
         
+        else if(this.match(TokenType.K_End)) {
+          const endNode = this.endStatement();
+
+          if(endNode.type == "EndStory") {
+            nodes.push(endNode);
+          } else {
+            this.error(this.previous(), "Invalid top-level statement. 'end scene' can only be used inside a scene" );
+          }
+        }
+
         else if (!this.isAtEnd()) {
-          this.error(this.peek(), 'Expected scene declaration');
+          this.error(this.peek(), 'Expected scene declaration or end of story');
           this.advance();
         }
       }
