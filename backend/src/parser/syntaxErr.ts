@@ -4,7 +4,8 @@ export interface SyntaxError {
   line: number;
   column: number;
   token: string;
-  type?: ErrorType;  // Optional: categorize errors
+  type?: ErrorType; 
+  suggestion?: string;  
 }
 
 // Error categories 
@@ -17,13 +18,14 @@ export enum ErrorType {
 
 // Helper class to create consistent error messages 
 export class SyntaxErrorBuilder {
-  static unexpectedToken(token: string, line: number, column: number): SyntaxError {
+  static unexpectedToken(token: string, line: number, column: number, suggestion?: string): SyntaxError {
     return {
       message: `Unexpected token '${token}'`,
       line,
       column,
       token,
-      type: ErrorType.UNEXPECTED_TOKEN
+      type: ErrorType.UNEXPECTED_TOKEN,
+      suggestion
     };
   }
 
@@ -33,7 +35,8 @@ export class SyntaxErrorBuilder {
       line,
       column,
       token: found,
-      type: ErrorType.MISSING_TOKEN
+      type: ErrorType.MISSING_TOKEN,
+      suggestion: `Insert '${expected}'`
     };
   }
 
@@ -43,7 +46,8 @@ export class SyntaxErrorBuilder {
       line,
       column,
       token: '}',
-      type: ErrorType.MISSING_TOKEN
+      type: ErrorType.MISSING_TOKEN,
+      suggestion: 'Insert "}"'
     };
   }
 
@@ -53,17 +57,23 @@ export class SyntaxErrorBuilder {
       line,
       column,
       token,
-      type: ErrorType.MISSING_TOKEN
+      type: ErrorType.MISSING_TOKEN,
+      suggestion: "Insert ';'"
     };
   }
 
-  static invalidStatement(token: string, line: number, column: number): SyntaxError {
+  static invalidStatement(token: string, line: number, column: number, suggestion?: string): SyntaxError {
+    const message = suggestion
+      ? `Unknown statement '${token}'. Did you mean '${suggestion}'?`
+      : `Invalid statement starting with '${token}'`;
+    
     return {
-      message: `Invalid statement starting with '${token}'`,
+      message: message,
       line,
       column,
       token,
-      type: ErrorType.INVALID_STATEMENT
+      type: ErrorType.INVALID_STATEMENT,
+      suggestion
     };
   }
 

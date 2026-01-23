@@ -1,6 +1,5 @@
-import { Token, TokenType } from '../types/Tokens';
-import { SyntaxError } from '../parser/syntaxErr';
-
+import { Token, TokenType, KEYWORDS } from '../types/Tokens';
+import { ErrorType, SyntaxError, SyntaxErrorBuilder } from '../parser/syntaxErr';
 
 export class parserUtils {
   protected tokens: Token[];
@@ -11,7 +10,7 @@ export class parserUtils {
     this.tokens = tokens;
   }
 
-   protected peek(): Token {
+  protected peek(): Token {
     return this.tokens[this.current];
   }
 
@@ -50,21 +49,72 @@ export class parserUtils {
       return this.advance();
     }
     
-    this.error(this.peek(), message);
+    this.error(this.peek(), message, ErrorType.UNEXPECTED_TOKEN);
     throw new Error(message);
   }
 
-  protected error(token: Token, message: string): void {
+  protected error(token: Token, message: string, type: ErrorType, suggestion?: string): void {
     this.errors.push({
       message,
       line: token.line,
       column: token.column,
-      token: token.lexeme
+      token: token.lexeme,
+      type,
+      suggestion
     });
   }
 
-  protected synchronize(): void {
+  protected expectSemicolon(): void {
+    if (this.match(TokenType.D_Semicolon)) return;
+  
+    const err = SyntaxErrorBuilder.missingSemicolon(
+      this.previous().line, 
+      this.previous().column, 
+      this.previous().lexeme
+    );
 
+    this.errors.push(err);
+  }
+
+  protected getKeywordSuggestion(typo: string): string | undefined {
+    const validKeywords = Object.keys(KEYWORDS);
+    let bestMatch: string | undefined;
+    let minDistance = Infinity;
+
+    for (const keyword of validKeywords) {
+      const dist = this.levenshtein(typo, keyword);
+      // Threshold: only suggest if it's somewhat close (distance < 3)
+      if (dist < 3 && dist < keyword.length * 0.4) { 
+        if (dist < minDistance) {
+          minDistance = dist;
+          bestMatch = keyword;
+        }
+      }
+    }
+    return bestMatch;
+  }
+
+  private levenshtein(a: string, b: string): number {
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) { matrix[i] = [i]; }
+    for (let j = 0; j <= a.length; j++) { matrix[0][j] = j; }
+
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b.charAt(i - 1) == a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1)
+          );
+        }
+      }
+    }
+    return matrix[b.length][a.length];
+  }
+
+  protected synchronize(): void {
     while (!this.isAtEnd()) {
       if (this.match(TokenType.D_Semicolon)) {
         return;
@@ -73,7 +123,7 @@ export class parserUtils {
         return;
       }
 
-  switch (this.peek().type) {
+      switch (this.peek().type) {
         case TokenType.K_Scene:
         case TokenType.K_Character:
         case TokenType.K_When:
@@ -89,7 +139,7 @@ export class parserUtils {
         case TokenType.R_Number:
         case TokenType.R_Boolean:
         case TokenType.R_DB:
-        return;
+          return;
       }
 
       this.advance();

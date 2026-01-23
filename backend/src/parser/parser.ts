@@ -1,6 +1,7 @@
 import { Token, TokenType } from '../types/Tokens';
 import { parserUtils } from '../utils/parserUtils';
 import { ASTNode, SceneDeclaration, Statement, VariableDeclaration, Expression } from '../types/AST';
+import { SyntaxErrorBuilder, ErrorType } from './syntaxErr';
 
 export class Parser extends parserUtils {
   constructor(tokens: Token[]) {
@@ -20,35 +21,32 @@ export class Parser extends parserUtils {
       // Optional start declaration (entry point)
       if (this.match(TokenType.K_Start)) {
         const sceneName = this.consume(TokenType.Identifier, 'Expected scene name after start');
-        this.consume(TokenType.D_Semicolon, 'Expected ";" after story declaration');
+        this.expectSemicolon();
         nodes.push({ type: 'StartDeclaration', scene: sceneName.lexeme });
+      }
+    } catch (error) {
+      this.synchronize();
+    }
+
+    // Parse all scenes (required)
+    while (!this.isAtEnd()) {
+      try {
+        if (this.match(TokenType.K_Scene)) {
+          nodes.push(this.sceneDeclaration());
+        } else if (this.match(TokenType.K_End)) {
+          const endNode = this.endStatement();
+
+          if (endNode.type == "EndStory") {
+            nodes.push(endNode);
+          } else {
+            this.error(this.previous(), "Invalid top-level statement. 'end scene' can only be used inside a scene", ErrorType.INVALID_STATEMENT);
+          }
+        } else {
+          this.error(this.peek(), 'Expected scene declaration', ErrorType.INVALID_STATEMENT);
+          this.advance();
         }
       } catch (error) {
         this.synchronize();
-      }
-
-      // Parse all scenes (required)
-      while (!this.isAtEnd()) {
-        try{
-          if (this.match(TokenType.K_Scene)) {
-           nodes.push(this.sceneDeclaration());
-          } 
-        
-          else if(this.match(TokenType.K_End)) {
-            const endNode = this.endStatement();
-
-           if(endNode.type == "EndStory") {
-              nodes.push(endNode);
-            } else {
-              this.error(this.previous(), "Invalid top-level statement. 'end scene' can only be used inside a scene" );
-            }
-          }else {
-          
-            this.error(this.peek(), 'Expected scene declaration');
-            this.advance();
-          }
-      } catch (error) {
-          this.synchronize();
       }
     }
 
@@ -75,13 +73,13 @@ export class Parser extends parserUtils {
         break;
       }
     
-    try {
+      try {
         statements.push(this.statement());
       } catch (error) {
         this.synchronize(); 
         
         if (this.check(TokenType.K_Scene)) {
-            break;
+          break;
         }
       }
     }
@@ -180,13 +178,23 @@ export class Parser extends parserUtils {
       this.current = savedPos;
     }
 
-    this.error(this.peek(), 'Invalid statement');
-    throw new Error('Invalid statement');
+    const token = this.peek();
+    const suggestion = this.getKeywordSuggestion(token.lexeme);
+
+    const err = SyntaxErrorBuilder.invalidStatement(
+      token.lexeme, 
+      token.line, 
+      token.column, 
+      suggestion
+    );
+
+    this.errors.push(err);
+    throw new Error(err.message);
   }
 
   private varDeclaration(dataType: TokenType): VariableDeclaration {
     const name = this.consume(TokenType.Identifier, 'Expected variable name');
-    this.consume(TokenType.D_Semicolon, 'Expected ";" after variable declaration');
+    this.expectSemicolon();
     return { type: 'VariableDeclaration', dataType: TokenType[dataType], name: name.lexeme };
   }
 
@@ -195,7 +203,7 @@ export class Parser extends parserUtils {
     const name = this.consume(TokenType.Identifier, 'Expected db name');
     this.consume(TokenType.OP_Assign, 'Expected "=" after db name');
     const connectionString = this.consume(TokenType.TextLiteral, 'Expected connection string');
-    this.consume(TokenType.D_Semicolon, 'Expected ";" after db declaration');
+    this.expectSemicolon();
     return { type: 'DbDeclaration', name: name.lexeme, connectionString: connectionString.lexeme };
   }
 
@@ -207,7 +215,7 @@ export class Parser extends parserUtils {
       const property = this.consume(TokenType.Identifier, 'Expected property name after "."');
       this.consume(TokenType.OP_Assign, 'Expected "=" in assignment');
       const value = this.expression();
-      this.consume(TokenType.D_Semicolon, 'Expected ";" after assignment');
+      this.expectSemicolon();
     
       return { 
         type: 'Assignment', 
@@ -219,7 +227,7 @@ export class Parser extends parserUtils {
     // Simple assignment: x = 10
     this.consume(TokenType.OP_Assign, 'Expected "=" in assignment');
     const value = this.expression();
-    this.consume(TokenType.D_Semicolon, 'Expected ";" after assignment');
+    this.expectSemicolon();
   
     return { 
       type: 'Assignment', 
@@ -259,7 +267,7 @@ export class Parser extends parserUtils {
         const fieldName = this.consume(TokenType.Identifier, 'Expected field name');
         this.consume(TokenType.D_Colon, 'Expected ":" after field name');
         const fieldType = this.advance();
-        this.consume(TokenType.D_Semicolon, 'Expected ";" after field');
+        this.expectSemicolon();
         fields.push({ name: fieldName.lexeme, type: TokenType[fieldType.type] });
       }
     }
@@ -282,7 +290,7 @@ export class Parser extends parserUtils {
     this.consume(TokenType.D_LParen, 'Expected "(" after when');    
     const condition = this.expression();
     this.consume(TokenType.D_RParen, 'Expected ")" after condition');
-    this.consume(TokenType.D_Semicolon, 'Expected ";" after do-while');
+    this.expectSemicolon();
     return { type: 'DoWhileStatement', body, condition };
   }
 
@@ -303,7 +311,7 @@ export class Parser extends parserUtils {
         this.consume(TokenType.K_Transition, 'Expected "transition" after case value');
         this.match(TokenType.N_To); // "to" is optional noise word
         const target = this.consume(TokenType.Identifier, 'Expected scene name');
-        this.consume(TokenType.D_Semicolon, 'Expected ";" after transition');
+        this.expectSemicolon();
         cases.push({ value: caseValue.lexeme, target: target.lexeme });
       }
     }
@@ -315,13 +323,13 @@ export class Parser extends parserUtils {
   private transitionStatement(): any {
     this.match(TokenType.N_To); // "to" is optional noise word
     const target = this.consume(TokenType.Identifier, 'Expected scene name after transition');
-    this.consume(TokenType.D_Semicolon, 'Expected ";" after transition');
+    this.expectSemicolon();
     return { type: 'TransitionStatement', target: target.lexeme };
   }
 
   private logStatement(): any {
     const message = this.consume(TokenType.TextLiteral, 'Expected message after log');
-    this.consume(TokenType.D_Semicolon, 'Expected ";" after log');
+    this.expectSemicolon();
     return { type: 'LogStatement', message: message.lexeme };
   }
 
@@ -329,20 +337,20 @@ export class Parser extends parserUtils {
     const character = this.consume(TokenType.Identifier, 'Expected character name');
     this.consume(TokenType.K_Says, 'Expected "says" after character');
     const message = this.consume(TokenType.TextLiteral, 'Expected message');
-    this.consume(TokenType.D_Semicolon, 'Expected ";" after says');
+    this.expectSemicolon();
     return { type: 'SaysStatement', character: character.lexeme, message: message.lexeme };
   }
 
   private endStatement(): any {
     if (this.match(TokenType.K_Scene)) {
-      this.consume(TokenType.D_Semicolon, 'Expected ";" after end scene');
+      this.expectSemicolon();
       return { type: 'EndScene' };
     }
     if (this.match(TokenType.K_Story)) {
-      this.consume(TokenType.D_Semicolon, 'Expected ";" after end story');
+      this.expectSemicolon();
       return { type: 'EndStory' };
     }
-    this.error(this.peek(), 'Expected "scene" or "story" after end');
+    this.error(this.peek(), 'Expected "scene" or "story" after end', ErrorType.INVALID_STATEMENT);
     throw new Error('Invalid end statement');
   }
 
@@ -478,7 +486,7 @@ export class Parser extends parserUtils {
       return { type: 'Identifier', name: name.lexeme };
     }
     
-    this.error(this.peek(), 'Expected expression');
+    this.error(this.peek(), 'Expected expression', ErrorType.INVALID_EXPRESSION);
     throw new Error('Expected expression');
   }
 
@@ -503,7 +511,7 @@ export class Parser extends parserUtils {
       } else if (this.match(TokenType.K_Where)) {
         policies.push(this.wherePolicy());
       } else {
-        this.error(this.peek(), 'Expected masking or where in perceives block');
+        this.error(this.peek(), 'Expected masking or where in perceives block', ErrorType.INVALID_STATEMENT);
         this.advance();
       }
     }
@@ -520,14 +528,14 @@ export class Parser extends parserUtils {
       fields.push(field.lexeme);
     } while (this.match(TokenType.D_Comma));
   
-    this.consume(TokenType.D_Semicolon, 'Expected ";" after masking');
+    this.expectSemicolon();
     return { type: 'MaskingPolicy', fields };
   }
 
   private wherePolicy(): any {
     // where userID == currentUser.id;
     const condition = this.expression();
-    this.consume(TokenType.D_Semicolon, 'Expected ";" after where condition');
+    this.expectSemicolon();
     return { type: 'WherePolicy', condition };
   }
 
