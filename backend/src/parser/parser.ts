@@ -12,10 +12,6 @@ export class Parser extends parserUtils {
     const nodes: Statement[] = [];
 
     try {
-      // Optional story declaration at program start
-      if (this.match(TokenType.K_Story)) {
-        nodes.push(this.storyDeclaration());
-      }
 
       // Optional start declaration (entry point)
       if (this.match(TokenType.K_Start)) {
@@ -39,10 +35,6 @@ export class Parser extends parserUtils {
     return { body: nodes, errors: this.errors };
   }
 
-  private storyDeclaration(): any {
-    const name = this.consume(TokenType.Identifier, 'Expected story name');
-    return { type: 'StoryDeclaration', name: name.lexeme };
-  }
 
   // Parses: scene Name { statements }
   private sceneDeclaration(): SceneDeclaration {
