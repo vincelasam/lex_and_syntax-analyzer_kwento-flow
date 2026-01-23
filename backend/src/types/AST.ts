@@ -27,11 +27,6 @@ export type Statement =
   | PerceivesBlock;
 
 // 1. Root Declarations
-export interface StoryDeclaration extends ASTNode {
-  type: 'StoryDeclaration';
-  name: string;
-}
-
 export interface StartDeclaration extends ASTNode {
   type: 'StartDeclaration';
   scene: string;
