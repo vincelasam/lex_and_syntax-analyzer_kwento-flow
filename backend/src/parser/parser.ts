@@ -24,7 +24,9 @@ export class Parser extends parserUtils {
       while (!this.isAtEnd()) {
         if (this.match(TokenType.K_Scene)) {
           nodes.push(this.sceneDeclaration());
-        } else if (!this.isAtEnd()) {
+        } 
+        
+        else if (!this.isAtEnd()) {
           this.error(this.peek(), 'Expected scene declaration');
           this.advance();
         }
