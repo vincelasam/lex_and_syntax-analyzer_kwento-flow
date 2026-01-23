@@ -24,7 +24,8 @@ export type Statement =
   | ThruStatement
   | EndScene
   | EndStory
-  | PerceivesBlock;
+  | PerceivesBlock
+  | InputStatement;
 
 // 1. Root Declarations
 export interface StartDeclaration extends ASTNode {
@@ -74,6 +75,7 @@ export interface DoWhileStatement extends ASTNode {
   type: 'DoWhileStatement';
   body: Statement[];
   condition: Expression;
+  whenBody: Statement[];
 }
 
 export interface ChooseStatement extends ASTNode {
@@ -195,3 +197,10 @@ export interface MethodCall extends ASTNode {
   method: string;    // "query" or "attack"
   arguments: Expression[];
 }
+
+export interface InputStatement extends ASTNode {
+  type: 'InputStatement';
+  variable: string;
+  prompt: string;
+}
+
