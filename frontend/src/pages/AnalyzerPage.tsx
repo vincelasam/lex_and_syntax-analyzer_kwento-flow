@@ -11,26 +11,27 @@ const AnalyzerPage = () => {
   const [syntaxErrors, setSyntaxErrors] = useState<SyntaxError[]>([]);
   const [hasRunAnalysis, setHasRunAnalysis] = useState(false);
 
-  const handleAnalyze = async () => {
-    try {
-      const response = await fetch("http://localhost:5000/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
-      });
+const handleAnalyze = async () => {
+  try {
+    const response = await fetch("http://localhost:5000/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    });
 
-      if (!response.ok) {
-        throw new Error("Failed to analyze code");
-      }
+    const data = await response.json();
 
-      const data = await response.json();
-      setTokens(data.tokens || []);
-    } catch (error) {
-      console.error("Analysis error:", error);
-      setTokens([]);
-    }
-    setHasRunAnalysis(true);
-  };
+    setTokens(data.tokens || []);
+    setSyntaxErrors(data.syntaxErrors || []);
+  } catch (error) {
+    console.error("Analysis error:", error);
+    setSyntaxErrors([
+      { line: 0, message: "Backend connection error", type: "SYSTEM" }
+    ]);
+  }
+
+  setHasRunAnalysis(true);
+};
 
   return (
     // OUTER CONTAINER: Handles the full height of the page
