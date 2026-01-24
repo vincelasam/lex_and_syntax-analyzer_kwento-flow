@@ -4,14 +4,32 @@ import { ASTNode, SceneDeclaration, Statement, VariableDeclaration, Expression }
 import { SyntaxErrorBuilder, ErrorType } from './syntaxErr';
 
 export class Parser extends parserUtils {
+  private hasReportedError: boolean = false; //cehcks if an error has been reported
+
   constructor(tokens: Token[]) {
-    // Filter out comments
     const filteredTokens = tokens.filter(
       (t) =>
         t.type !== TokenType.SingleLineComment &&
         t.type !== TokenType.MultiLineComment
     );
     super(filteredTokens);
+  }
+  // CENTRALIZED ERROR REPORTING - stops after first error
+   protected error(token: Token, message: string, type: ErrorType, suggestion?: string): void {
+    if (this.hasReportedError) {
+      return;
+    }
+    
+    this.hasReportedError = true;
+    
+    this.errors.push({
+      message: message,
+      line: token.line,
+      column: token.column,
+      token: token.lexeme,
+      type: type,
+      suggestion: suggestion
+    });
   }
 
   // --- 1. VALIDATION HELPERS ---
